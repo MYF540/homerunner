@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and upload zip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set version from tag in manifest (zip only, no commit)
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${TAG#v}"
+          python3 - "$version" <<'PY'
+          import json, sys
+          p = "custom_components/homerunner/manifest.json"
+          with open(p) as f:
+              m = json.load(f)
+          m["version"] = sys.argv[1]
+          with open(p, "w") as f:
+              json.dump(m, f, indent=2)
+              f.write("\n")
+          PY
+      - name: Zip integration
+        run: |
+          cd custom_components/homerunner
+          zip -r ../../homerunner.zip . -x "__pycache__/*" "*/__pycache__/*"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: homerunner.zip

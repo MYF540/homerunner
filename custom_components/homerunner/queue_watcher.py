@@ -11,6 +11,7 @@ import logging
 from homeassistant.util.dt import utcnow
 
 from .github import (
+    GitHubAuthError,
     GitHubClient,
     GitHubError,
     GitHubNotFoundError,
@@ -52,6 +53,7 @@ class QueueSnapshot:
     repos_watched: int
     scanned_at: datetime
     throttled: bool = False
+    auth_failed: bool = False
 
 
 class QueueWatcher:
@@ -132,6 +134,7 @@ class QueueWatcher:
         now = self._now()
         error: str | None = None
         throttled = False
+        auth_failed = False
         try:
             await self._refresh_repos(now)
             repos = self._repos or []
@@ -157,11 +160,13 @@ class QueueWatcher:
 
             for repo, jobs, err in await asyncio.gather(*(run(r) for r in todo)):
                 if err is not None:
+                    auth_failed = auth_failed or isinstance(err, GitHubAuthError)
                     error = error or f"{repo.full_name}: {err}"
                     continue
                 self._jobs[repo.full_name] = jobs or []
                 self._last_scanned[repo.full_name] = now
         except GitHubError as err:
+            auth_failed = isinstance(err, GitHubAuthError)
             error = str(err) or type(err).__name__
         if error:
             _LOGGER.warning("GitHub queue scan failed: %s", error)
@@ -184,4 +189,5 @@ class QueueWatcher:
             repos_watched=len(self._repos or []),
             scanned_at=now,
             throttled=throttled,
+            auth_failed=auth_failed,
         )

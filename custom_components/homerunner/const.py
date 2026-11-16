@@ -36,6 +36,11 @@ CONF_QUEUE_ALERT_MINUTES = "queue_alert_minutes"
 CONF_AUTOMATIC = "automatic"
 CONF_DRY_RUN = "dry_run"
 
+# webhook (options)
+CONF_USE_WEBHOOK = "use_webhook"
+CONF_WEBHOOK_ID = "webhook_id"
+CONF_WEBHOOK_SECRET = "webhook_secret"
+
 # schedule subentry (subentry_type "schedule")
 CONF_REPOSITORY = "repository"
 CONF_WORKFLOW = "workflow"
@@ -51,6 +56,18 @@ CONF_DISPATCH_TOKEN = "dispatch_token"
 CONF_NAME = "name"
 CONF_ENABLED = "enabled"
 SUBENTRY_SCHEDULE = "schedule"
+
+# services and events
+SERVICE_WAKE = "wake"
+SERVICE_SHUTDOWN = "shutdown"
+SERVICE_KEEP_AWAKE = "keep_awake"
+SERVICE_DISPATCH = "dispatch"
+ATTR_CONFIG_ENTRY = "config_entry"
+ATTR_FORCE = "force"
+ATTR_DURATION = "duration"
+ATTR_SCHEDULE = "schedule"
+EVENT_DISPATCHED = f"{DOMAIN}_dispatched"
+EVENT_DISPATCH_FAILED = f"{DOMAIN}_dispatch_failed"
 
 # defaults
 DEFAULT_API_BASE = "https://api.github.com"
@@ -73,6 +90,7 @@ DEFAULT_WEEKDAYS: list[int] = [0, 1, 2, 3, 4, 5, 6]
 DEFAULT_PREWAKE = True
 DEFAULT_PREWAKE_MINUTES = 15
 DEFAULT_RETRIES = 5
+DEFAULT_KEEP_AWAKE_HOURS = 2
 
 
 class PowerState(StrEnum):

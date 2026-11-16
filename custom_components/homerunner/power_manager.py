@@ -51,6 +51,7 @@ class Rules:
     schedule_guard_minutes: float = 30
     queue_alert_minutes: float = 15
     automatic: bool = False
+    auto_shutdown: bool = False
     dry_run: bool = True
 
 
@@ -472,6 +473,8 @@ class PowerStateMachine:
         blockers: list[str] = []
         if not self.rules.automatic:
             blockers.append("automatic_off")
+        if not self.rules.auto_shutdown:
+            blockers.append("auto_shutdown_off")
         if self.keep_awake_until is not None and self.keep_awake_until > now:
             blockers.append("keep_awake")
         guard = timedelta(minutes=self.rules.schedule_guard_minutes)

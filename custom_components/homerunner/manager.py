@@ -17,6 +17,7 @@ from homeassistant.util import dt as dt_util
 
 from .bmc import BmcError, RedfishClient, send_magic_packet
 from .const import (
+    CONF_AUTO_SHUTDOWN,
     CONF_AUTOMATIC,
     CONF_DRY_RUN,
     CONF_FORCED_WAKE_DAYS,
@@ -29,6 +30,7 @@ from .const import (
     CONF_SHORT_IDLE_MINUTES,
     CONF_WAKE_TIMEOUT_MINUTES,
     CONF_WOL_MAC,
+    DEFAULT_AUTO_SHUTDOWN,
     DEFAULT_AUTOMATIC,
     DEFAULT_DRY_RUN,
     DEFAULT_FORCED_WAKE_DAYS,
@@ -66,9 +68,10 @@ _RULE_DEFAULTS: dict[str, Any] = {
     CONF_SCHEDULE_GUARD_MINUTES: DEFAULT_SCHEDULE_GUARD_MINUTES,
     CONF_QUEUE_ALERT_MINUTES: DEFAULT_QUEUE_ALERT_MINUTES,
     CONF_AUTOMATIC: DEFAULT_AUTOMATIC,
+    CONF_AUTO_SHUTDOWN: DEFAULT_AUTO_SHUTDOWN,
     CONF_DRY_RUN: DEFAULT_DRY_RUN,
 }
-_BOOL_RULES = {CONF_AUTOMATIC, CONF_DRY_RUN}
+_BOOL_RULES = {CONF_AUTOMATIC, CONF_AUTO_SHUTDOWN, CONF_DRY_RUN}
 _INT_RULES = {CONF_MAX_STARTS_PER_DAY}
 
 NOTIFY_TEXT: dict[str, dict[str, tuple[str, str]]] = {
@@ -269,7 +272,7 @@ class HomerunnerManager:
             runners_ready=runners_ready,
             queued=len(queued),
             running=len(queue.running) if queue else 0,
-            github_ok=bool(queue and queue.ok),
+            github_ok=bool(queue and queue.ok and self.queue.last_update_success),
             next_schedule_at=next_at,
             prewake_due=prewake_due,
             oldest_queued_at=min(created) if created else None,

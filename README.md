@@ -19,7 +19,7 @@ A state machine (`off`, `starting`, `ready`, `active`, `shutting_down`, `wake_fa
 
 - **Wake** when automatic mode is on and a matching job is queued, a schedule's pre-wake window has started, or the host has been off for the forced-wake period (default 5 days, to keep runner registrations alive).
 - **Shut down** when no matching job is queued or running for the idle time (default 2 hours after real work, 20 minutes if no job came since the wake).
-- **Never shut down** while automatic mode is off, a keep-awake period is active, a schedule is due within 30 minutes, the minimum uptime (15 minutes) is not reached, GitHub is unreachable, or the power state is unknown.
+- **Never shut down** while automatic mode or **Automatic shutdown** is off, a keep-awake period is active, a schedule is due within 30 minutes, the minimum uptime (15 minutes) is not reached, GitHub is unreachable, or the power state is unknown.
 - **Start limit:** at most 8 starts per day (local time). After that the host stays on until midnight and you are notified.
 
 ### Safety model
@@ -77,7 +77,7 @@ Add the integration under **Settings > Devices & services > Add integration > Ho
 3. **Rules and filters** (entry options): idle time, short idle time, minimum uptime, maximum starts per day, forced wake after N days off and its duration, wake timeout, no shutdown before a schedule, alert for waiting jobs, excluded repositories, runner labels, webhook.
 4. **Schedules** are added as sub-entries of the integration (see below).
 
-A new entry starts with **Automatic off** and **Dry run on**.
+A new entry starts with **Automatic off**, **Automatic shutdown off** and **Dry run on**. Existing entries without the setting count as off.
 
 ### Options
 
@@ -97,10 +97,10 @@ A new entry starts with **Automatic off** and **Dry run on**.
 
 1. **Dry run and automatic on, no real power switching.** Keep **Dry run** on and switch **Automatic** on. The state machine decides and logs, and notifications are prefixed with "[dry run]", but nothing is powered on or off. Watch the *State*, *Shutdown at* and *Last wake reason* entities and the logbook for a few days.
 2. **Tune the idle time** with the *Idle time* number entity. A longer value keeps the host on between pull requests; a shorter one saves more power but causes more starts.
-3. **Enable wake:** turn **Dry run** off while the host is still switched off or running. Wake requests now go to the BMC. Because shutdowns also become real with the same switch, first set `homerunner-guard` to `dry_run = true` (see [server/install.md](server/install.md)) or enable the maintenance file `/etc/homerunner/inhibit`, which refuses every shutdown.
-4. **Enable shutdown:** remove the inhibit file and set the guard to `dry_run = false`. Check the first real shutdown and wake by hand.
+3. **Enable wake, shut down by hand:** turn **Dry run** off while **Automatic shutdown** stays off. The host is now woken for real (BMC) when jobs wait, but never shuts down on its own: the idle timer and *Shutdown at* are still shown and the blocker `auto_shutdown_off` is listed. Shut down by hand with *Safe shutdown* (button or service), which still works. Keep `homerunner-guard` on `dry_run = true` or the inhibit file `/etc/homerunner/inhibit` in place meanwhile (see [server/install.md](server/install.md)).
+4. **Enable automatic shutdown:** remove the inhibit file, set the guard to `dry_run = false` and switch **Automatic shutdown** on. Check the first real shutdown and wake by hand.
 
-Dry run is one switch for both directions: it affects waking and shutting down. In dry run the state machine assumes its actions succeeded.
+Dry run is one switch for both directions: it affects waking and shutting down. In dry run the state machine assumes its actions succeeded. **Automatic shutdown** only controls whether the idle rules may start a shutdown.
 
 ## Entities
 
@@ -122,6 +122,7 @@ All entities belong to one device per entry. "Diagnostic" and "Config" refer to 
 | GitHub reachable | binary sensor (diagnostic) | |
 | Problem | binary sensor (diagnostic) | On if wake failed, GitHub or the BMC cannot be read, or the host is on but the guard does not answer. |
 | Automatic | switch (config) | Master switch for automatic wake and shutdown. |
+| Automatic shutdown | switch (config) | Allow the idle rules to shut the host down. Off: wake only; manual safe shutdown still works. |
 | Dry run | switch (config) | Decide and log, but do not power anything. |
 | Idle time, Short idle time | number (config) | Change the idle timers at runtime. |
 | Wake | button | Power on now. |

@@ -324,3 +324,57 @@ def test_cancel(env):
     assert rc == 0 and o["result"] == "ok"
     assert all(r["active"] for r in o["runners"])
     assert not (env.state / "planned-off").exists()
+
+
+def test_pgrep_error_is_not_treated_as_no_job(env):
+    env.fake.fail.add("runner-2 -- pgrep")  # rc 1 == "no match" in the fake; use rc 255 below
+    orig = env.fake.__call__
+
+    def call(args, timeout=60, env_=None):
+        if "pgrep" in args and "runner-2" in args:
+            return 255, "", "lxc: cannot connect"
+        return orig(args, timeout, env_)
+
+    env.fake.fail.clear()
+    env.mod.run_cmd = call
+    _, o = env.call("shutdown")
+    assert o["result"] == "refused" and o["reason"] == "error"
+    assert not any("stop" in c for c in env.fake.calls)
+    assert env.fake.poweroff == []
+
+
+def test_who_failure_refuses_when_users_matter(env):
+    orig = env.fake.__call__
+
+    def call(args, timeout=60, env_=None):
+        if args[0] == "who":
+            return 1, "", "who: broken"
+        return orig(args, timeout, env_)
+
+    env.mod.run_cmd = call
+    _, o = env.call("shutdown")
+    assert o["result"] == "refused" and o["reason"] == "error"
+    assert env.fake.poweroff == []
+
+
+def test_poweroff_failure_restarts_runners(env):
+    orig = env.fake.__call__
+
+    def call(args, timeout=60, env_=None):
+        if "poweroff" in " ".join(args):
+            return 1, "", "denied"
+        return orig(args, timeout, env_)
+
+    env.mod.run_cmd = call
+    env.call("shutdown")
+    assert all(d["services"][s] for d in env.fake.c.values() for s in d["services"])
+    assert not (env.state / "planned-off").exists()
+
+
+def test_job_after_stop_aborts_and_restarts(env):
+    # pgrep counts per container: discovery 1, recheck 2, final recheck 3 -> job appears
+    env.fake.job_after_pgrep["runner-1"] = 2
+    _, o = env.call("shutdown")
+    assert o["result"] == "refused" and o["reason"] == "job_running"
+    assert all(d["services"][s] for d in env.fake.c.values() for s in d["services"])
+    assert env.fake.poweroff == []

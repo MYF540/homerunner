@@ -11,6 +11,7 @@ from pytest_homeassistant_custom_component.common import async_capture_events
 
 from custom_components.homerunner.bmc import BmcConnectionError, PowerState
 from custom_components.homerunner.const import (
+    CONF_AUTO_SHUTDOWN,
     CONF_AUTOMATIC,
     CONF_DRY_RUN,
     CONF_WOL_MAC,
@@ -21,7 +22,7 @@ from custom_components.homerunner.power_manager import ServerState
 
 from .conftest import make_guard_status, make_job, make_snapshot
 
-LIVE = {CONF_AUTOMATIC: True, CONF_DRY_RUN: False}
+LIVE = {CONF_AUTOMATIC: True, CONF_AUTO_SHUTDOWN: True, CONF_DRY_RUN: False}
 
 
 async def _setup(hass, entry):
@@ -56,7 +57,9 @@ async def test_wol_is_sent_and_alone_counts_as_attempt(hass, mock_entry, mocks) 
     assert manager.machine.state is ServerState.STARTING  # not WAKE_FAILED
 
 
-@pytest.mark.parametrize("entry_options", [{CONF_AUTOMATIC: True, CONF_DRY_RUN: True}])
+@pytest.mark.parametrize(
+    "entry_options", [{CONF_AUTOMATIC: True, CONF_AUTO_SHUTDOWN: True, CONF_DRY_RUN: True}]
+)
 async def test_dry_run_does_not_call_bmc(hass, mock_entry, mocks, caplog) -> None:
     caplog.set_level("INFO")
     mocks.snapshot = make_snapshot(queued=[make_job()])
@@ -179,6 +182,15 @@ async def test_entities_change_rules_immediately(hass, mock_entry, mocks) -> Non
     )
     assert manager.machine.rules.automatic is True
     assert mock_entry.options[CONF_AUTOMATIC] is True
+    assert manager.machine.rules.auto_shutdown is False  # missing key -> False
+    await hass.services.async_call(
+        "switch",
+        "turn_on",
+        {"entity_id": "switch.runner_server_octo_org_automatic_shutdown"},
+        blocking=True,
+    )
+    assert manager.machine.rules.auto_shutdown is True
+    assert mock_entry.options[CONF_AUTO_SHUTDOWN] is True
 
 
 async def test_state_is_persisted(hass, mock_entry, mocks, hass_storage) -> None:
@@ -205,3 +217,12 @@ async def test_guard_status_used_for_readiness(hass, mock_entry, mocks) -> None:
     mocks.guard.status.return_value = make_guard_status(active=False)
     manager = await _setup(hass, mock_entry)
     assert manager.machine.state is ServerState.STARTING
+
+
+@pytest.mark.parametrize("entry_options", [LIVE])
+async def test_failed_queue_refresh_blocks_shutdown(hass, mock_entry, mocks) -> None:
+    """A stale 'ok' snapshot must not count as GitHub being reachable."""
+    manager = await _up(hass, mock_entry, mocks)
+    assert manager.build_observation().github_ok is True
+    manager.queue.last_update_success = False
+    assert manager.build_observation().github_ok is False

@@ -14,7 +14,9 @@ from .github import (
     GitHubAuthError,
     GitHubClient,
     GitHubError,
+    GitHubForbiddenError,
     GitHubNotFoundError,
+    GitHubValidationError,
     Job,
     RateLimit,
     Repo,
@@ -76,6 +78,7 @@ class QueueWatcher:
         self._repos_at: datetime | None = None
         self._last_scanned: dict[str, datetime] = {}
         self._jobs: dict[str, list[Job]] = {}
+        self._warned_repos: set[str] = set()
 
     def _excluded_repo(self, repo: Repo) -> bool:
         return repo.name.lower() in self._excluded or repo.full_name.lower() in self._excluded
@@ -94,6 +97,7 @@ class QueueWatcher:
         for stale in set(self._jobs) - names:
             del self._jobs[stale]
             self._last_scanned.pop(stale, None)
+        self._warned_repos &= names
 
     def _is_throttled(self) -> bool:
         rl = self._client.rate_limit
@@ -150,6 +154,17 @@ class QueueWatcher:
                         return repo, await self._scan_repo(repo), None
                     except GitHubNotFoundError:
                         _LOGGER.debug("Repository %s not found, ignoring", repo.full_name)
+                        return repo, [], None
+                    except (GitHubForbiddenError, GitHubValidationError) as err:
+                        # Persistent per-repo 403/422 (no access, Actions disabled, SSO) says
+                        # nothing about the scan as a whole: log once, ignore the repo.
+                        if repo.full_name not in self._warned_repos:
+                            self._warned_repos.add(repo.full_name)
+                            _LOGGER.warning(
+                                "Ignoring repository %s, GitHub refuses access: %s",
+                                repo.full_name,
+                                err,
+                            )
                         return repo, [], None
                     except GitHubError as err:
                         return repo, None, err

@@ -38,6 +38,7 @@ from homeassistant.helpers.selector import (
 from .bmc import BmcAuthError, BmcError, RedfishClient, build_magic_packet
 from .const import (
     CONF_API_BASE,
+    CONF_AUTO_SHUTDOWN,
     CONF_AUTOMATIC,
     CONF_BMC_HOST,
     CONF_BMC_PASSWORD,
@@ -80,6 +81,7 @@ from .const import (
     CONF_WOL_MAC,
     CONF_WORKFLOW,
     DEFAULT_API_BASE,
+    DEFAULT_AUTO_SHUTDOWN,
     DEFAULT_AUTOMATIC,
     DEFAULT_BMC_VERIFY_SSL,
     DEFAULT_DRY_RUN,
@@ -363,7 +365,11 @@ class HomerunnerConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_create_entry(
             title=owner,
             data={**self._github, **self._server},
-            options={CONF_AUTOMATIC: DEFAULT_AUTOMATIC, CONF_DRY_RUN: DEFAULT_DRY_RUN},
+            options={
+                CONF_AUTOMATIC: DEFAULT_AUTOMATIC,
+                CONF_AUTO_SHUTDOWN: DEFAULT_AUTO_SHUTDOWN,
+                CONF_DRY_RUN: DEFAULT_DRY_RUN,
+            },
         )
 
     # ---------------------------------------------------------------- reconfigure

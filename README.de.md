@@ -19,7 +19,7 @@ Ein Zustandsautomat (`off`, `starting`, `ready`, `active`, `shutting_down`, `wak
 
 - **Wecken**, wenn die Automatik an ist und ein passender Job wartet, das Vorlauf-Fenster eines Zeitplans begonnen hat oder der Host so lange aus war wie die Pflicht-Weck-Frist (Standard 5 Tage, damit die Runner-Registrierungen erhalten bleiben).
 - **Herunterfahren**, wenn für die Leerlauffrist kein passender Job wartet oder läuft (Standard 2 Stunden nach echter Arbeit, 20 Minuten, wenn seit dem Wecken kein Job kam).
-- **Nie herunterfahren**, solange die Automatik aus ist, eine Wach-halten-Frist läuft, ein Zeitplan in weniger als 30 Minuten fällig ist, die Mindestlaufzeit (15 Minuten) nicht erreicht ist, GitHub nicht erreichbar ist oder der Stromzustand unbekannt ist.
+- **Nie herunterfahren**, solange die Automatik oder das **Automatische Herunterfahren** aus ist, eine Wach-halten-Frist läuft, ein Zeitplan in weniger als 30 Minuten fällig ist, die Mindestlaufzeit (15 Minuten) nicht erreicht ist, GitHub nicht erreichbar ist oder der Stromzustand unbekannt ist.
 - **Startgrenze:** höchstens 8 Starts pro Tag (Ortszeit). Danach bleibt der Host bis Mitternacht an, und Sie werden benachrichtigt.
 
 ### Sicherheitsmodell
@@ -77,7 +77,7 @@ Die Integration unter **Einstellungen > Geräte & Dienste > Integration hinzufü
 3. **Regeln und Filter** (Optionen des Eintrags): Leerlauffrist, kurze Frist, Mindestlaufzeit, Starts pro Tag, Pflicht-Wecken nach N Tagen und seine Dauer, Weck-Zeitlimit, kein Herunterfahren vor einem Zeitplan, Warnung bei wartenden Jobs, ausgeschlossene Repositories, Runner-Labels, Webhook.
 4. **Zeitpläne** werden als Untereinträge der Integration angelegt (siehe unten).
 
-Ein neuer Eintrag startet mit **Automatik aus** und **Trockenlauf an**.
+Ein neuer Eintrag startet mit **Automatik aus**, **Automatisches Herunterfahren aus** und **Trockenlauf an**. Bestehende Einträge ohne diese Einstellung gelten als aus.
 
 ### Optionen
 
@@ -97,10 +97,10 @@ Ein neuer Eintrag startet mit **Automatik aus** und **Trockenlauf an**.
 
 1. **Trockenlauf und Automatik an, ohne echtes Schalten.** **Trockenlauf** an lassen und **Automatik** einschalten. Der Zustandsautomat entscheidet und protokolliert, Benachrichtigungen tragen den Präfix „[dry run]“, aber nichts wird ein- oder ausgeschaltet. Einige Tage die Entitäten *Zustand*, *Herunterfahren um* und *Letzter Weckgrund* sowie das Logbuch beobachten.
 2. **Leerlauffrist einstellen** mit der Number-Entität *Idle time*. Ein höherer Wert hält den Host zwischen Pull Requests an, ein niedrigerer spart mehr Strom, führt aber zu mehr Starts.
-3. **Wecken aktivieren:** **Trockenlauf** ausschalten, solange der Host noch läuft oder ausgeschaltet ist. Weckanfragen gehen jetzt an das BMC. Weil derselbe Schalter auch das Herunterfahren scharf stellt, vorher `homerunner-guard` auf `dry_run = true` setzen (siehe [server/install.md](server/install.md)) oder die Sperrdatei `/etc/homerunner/inhibit` anlegen, die jedes Herunterfahren ablehnt.
-4. **Herunterfahren aktivieren:** Sperrdatei entfernen und den Wächter auf `dry_run = false` setzen. Das erste echte Herunterfahren und Wecken von Hand begleiten.
+3. **Wecken aktivieren, von Hand herunterfahren:** **Trockenlauf** ausschalten, **Automatisches Herunterfahren** aus lassen. Der Host wird jetzt echt (BMC) geweckt, wenn Jobs warten, fährt aber nie von selbst herunter: Leerlauffrist und *Herunterfahren um* werden weiter angezeigt, der Blocker `auto_shutdown_off` steht in `blockers`. Von Hand herunterfahren mit *Safe shutdown* (Taste oder Dienst), das weiter funktioniert. Den Wächter solange auf `dry_run = true` lassen oder die Sperrdatei `/etc/homerunner/inhibit` angelegt halten (siehe [server/install.md](server/install.md)).
+4. **Automatisches Herunterfahren aktivieren:** Sperrdatei entfernen, den Wächter auf `dry_run = false` setzen und **Automatisches Herunterfahren** einschalten. Das erste echte Herunterfahren und Wecken von Hand begleiten.
 
-Der Trockenlauf ist ein gemeinsamer Schalter für beide Richtungen: Er betrifft Wecken und Herunterfahren. Im Trockenlauf geht der Zustandsautomat davon aus, dass seine Aktionen gelungen sind.
+Der Trockenlauf ist ein gemeinsamer Schalter für beide Richtungen: Er betrifft Wecken und Herunterfahren. Im Trockenlauf geht der Zustandsautomat davon aus, dass seine Aktionen gelungen sind. **Automatisches Herunterfahren** steuert nur, ob die Leerlaufregeln ein Herunterfahren auslösen dürfen.
 
 ## Entitäten
 
@@ -122,6 +122,7 @@ Alle Entitäten gehören zu einem Gerät je Eintrag. „Diagnose“ und „Konfi
 | GitHub reachable | Binärsensor (Diagnose) | |
 | Problem | Binärsensor (Diagnose) | An bei Weckfehler, wenn GitHub oder das BMC nicht lesbar sind oder der Host läuft, der Wächter aber nicht antwortet. |
 | Automatic | Schalter (Konfiguration) | Hauptschalter für automatisches Wecken und Herunterfahren. |
+| Automatic shutdown | Schalter (Konfiguration) | Leerlaufregeln dürfen herunterfahren. Aus: nur Wecken; manuelles sicheres Herunterfahren geht weiter. |
 | Dry run | Schalter (Konfiguration) | Entscheiden und protokollieren, aber nichts schalten. |
 | Idle time, Short idle time | Number (Konfiguration) | Leerlauffristen im Betrieb ändern. |
 | Wake | Knopf | Jetzt einschalten. |

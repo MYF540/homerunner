@@ -35,6 +35,7 @@ CONF_SCHEDULE_GUARD_MINUTES = "schedule_guard_minutes"
 CONF_QUEUE_ALERT_MINUTES = "queue_alert_minutes"
 CONF_AUTOMATIC = "automatic"
 CONF_DRY_RUN = "dry_run"
+CONF_AUTO_SHUTDOWN = "auto_shutdown"
 
 # webhook (options)
 CONF_USE_WEBHOOK = "use_webhook"
@@ -85,6 +86,7 @@ DEFAULT_SCHEDULE_GUARD_MINUTES = 30
 DEFAULT_QUEUE_ALERT_MINUTES = 15
 DEFAULT_AUTOMATIC = False
 DEFAULT_DRY_RUN = True
+DEFAULT_AUTO_SHUTDOWN = False
 DEFAULT_REF = "main"
 DEFAULT_WEEKDAYS: list[int] = [0, 1, 2, 3, 4, 5, 6]
 DEFAULT_PREWAKE = True

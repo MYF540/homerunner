@@ -13,6 +13,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.homerunner.const import (
+    CONF_AUTO_SHUTDOWN,
     CONF_AUTOMATIC,
     CONF_DRY_RUN,
     DOMAIN,
@@ -170,7 +171,9 @@ async def test_forbidden_is_not_a_repair(hass, sched_entry, mocks, freezer) -> N
     assert mocks.github.dispatch.await_count == 1
 
 
-@pytest.mark.parametrize("entry_options", [{CONF_AUTOMATIC: True, CONF_DRY_RUN: False}])
+@pytest.mark.parametrize(
+    "entry_options", [{CONF_AUTOMATIC: True, CONF_AUTO_SHUTDOWN: True, CONF_DRY_RUN: False}]
+)
 async def test_prewake_wakes_server_before_fire(hass, sched_entry, mocks, freezer) -> None:
     freezer.move_to("2026-11-16 01:30:00+00:00")  # outside the window (fire 02:00, 15 min)
     data = await _setup(hass, sched_entry)
@@ -254,3 +257,14 @@ async def test_schedule_device_and_entities(hass, sched_entry, mocks) -> None:
     dev = dr.async_get(hass).async_get(ent.device_id)
     assert dev.entry_type is dr.DeviceEntryType.SERVICE
     assert dev.name == "Schedule Nightly"
+
+
+@pytest.mark.parametrize("entry_options", [{CONF_AUTOMATIC: True, CONF_DRY_RUN: False}])
+async def test_no_run_fetch_timer_after_stop(hass, mock_entry, mocks) -> None:
+    await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+    runner = mock_entry.runtime_data.runner
+    runner.stop()
+    schedule = runner.build_adhoc("octo-org/app", "w.yml", "main", None)
+    runner._plan_run_fetch(schedule, 1, 10, 1)
+    assert runner._run_timers == {}

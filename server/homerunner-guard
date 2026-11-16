@@ -120,8 +120,13 @@ def _is_active(cfg, container, service):
 
 
 def _has_job(cfg, container):
-    rc, _, _ = _run(cfg, _exec_prefix(cfg, container) + ["pgrep", "-f", cfg["worker_process"]])
-    return rc == 0
+    rc, _, err = _run(cfg, _exec_prefix(cfg, container) + ["pgrep", "-f", cfg["worker_process"]])
+    if rc == 0:
+        return True
+    if rc == 1:  # pgrep: no process matched
+        return False
+    # Anything else (lxc/pgrep missing or failing) must never read as "no job".
+    raise CmdError("job check failed (rc %s): %s" % (rc, err.strip()))
 
 
 def _containers(cfg):
@@ -170,8 +175,10 @@ def public_runners(runners):
     return [{k: r[k] for k in ("name", "service", "active", "job")} for r in runners]
 
 
-def logged_in_users(cfg):
-    rc, out, _ = _run(cfg, ["who"])
+def logged_in_users(cfg, strict=False):
+    rc, out, err = _run(cfg, ["who"])
+    if rc != 0 and strict:
+        raise CmdError("who failed (rc %s): %s" % (rc, err.strip()))
     users = []
     if rc == 0:
         for line in out.splitlines():
@@ -303,7 +310,7 @@ def _shutdown_locked(cfg, out):
         if os.path.exists(cfg["inhibit_file"]):
             return _refused("inhibited", "inhibit file exists: %s" % cfg["inhibit_file"]), False
         if cfg["refuse_if_users_logged_in"]:
-            users = logged_in_users(cfg)
+            users = logged_in_users(cfg, strict=True)
             if users:
                 return _refused("users_logged_in", "users logged in: %s" % ", ".join(users)), False
         runners = discover_runners(cfg)
@@ -324,6 +331,16 @@ def _shutdown_locked(cfg, out):
             _stop(cfg, r)
             r["active"] = False
             stopped.append(r)
+        # a job may have been picked up between the last check and the stop
+        for r in stopped:
+            if _has_job(cfg, r["container"]):
+                r["job"] = True
+                problems = _restart_all(cfg, stopped)
+                detail = "job found on %s after stopping; restarted %d runner(s)" % (
+                    r["name"], len(stopped))
+                if problems:
+                    detail += "; " + "; ".join(problems)
+                return _refused("job_running", detail, runners), False
     except CmdError as e:
         problems = _restart_all(cfg, stopped)
         detail = str(e)
@@ -404,6 +421,10 @@ def main(argv=None, env=None, stdout=None):
                     failed = str(e)
                 if failed:
                     remove_marker(cfg)
+                    try:  # the runners were stopped for a shutdown that did not happen
+                        cmd_cancel(cfg)
+                    except (CmdError, OSError) as e:
+                        sys.stderr.write("homerunner-guard: restart failed: %s\n" % e)
                     sys.stderr.write("homerunner-guard: %s\n" % failed)
     except (CmdError, ValueError, OSError) as e:
         emit({"version": VERSION, "result": "refused", "reason": "error", "detail": str(e)})

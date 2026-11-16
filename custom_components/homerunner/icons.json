@@ -48,6 +48,10 @@
         "default": "mdi:robot-off-outline",
         "state": { "on": "mdi:robot-outline" }
       },
+      "auto_shutdown": {
+        "default": "mdi:power-plug-off-outline",
+        "state": { "on": "mdi:power-plug-outline" }
+      },
       "dry_run": {
         "default": "mdi:play-circle-outline",
         "state": { "on": "mdi:test-tube" }

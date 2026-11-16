@@ -21,7 +21,7 @@ def mins(n: float) -> timedelta:
 
 
 def rules(**kw) -> Rules:
-    base = {"automatic": True, "dry_run": False}
+    base = {"automatic": True, "auto_shutdown": True, "dry_run": False}
     base.update(kw)
     return Rules(**base)
 
@@ -184,6 +184,19 @@ def test_blocker_automatic_off():
     assert "automatic_off" in m.blockers and m.state == ServerState.READY
     m.rules.automatic = True
     assert kinds(m.step(obs(t + mins(1)))) == [("shutdown", "idle")]
+
+
+def test_blocker_auto_shutdown_off_wakes_but_never_shuts_down():
+    m, t = long_idle()
+    m.rules.auto_shutdown = False
+    assert m.shutdown_at is not None  # timers are still computed
+    assert m.step(obs(t)) == []
+    assert m.blockers == ["auto_shutdown_off"] and m.state == ServerState.READY
+    # manual safe shutdown still works
+    assert kinds(m.request_shutdown(t)) == [("shutdown", "manual")]
+    # automatic wake is independent of auto_shutdown
+    m2 = machine_off(auto_shutdown=False)
+    assert kinds(m2.step(obs(T0 + mins(1), OFF, queued=1))) == [("wake", "queued_job")]
 
 
 def test_blocker_keep_awake():

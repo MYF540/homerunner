@@ -271,6 +271,9 @@
       "automatic": {
         "name": "Automatik"
       },
+      "auto_shutdown": {
+        "name": "Automatisches Herunterfahren"
+      },
       "dry_run": {
         "name": "Trockenlauf"
       },

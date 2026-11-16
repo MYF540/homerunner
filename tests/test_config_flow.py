@@ -4,6 +4,7 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.homerunner.bmc import BmcAuthError, BmcConnectionError
 from custom_components.homerunner.const import (
+    CONF_AUTO_SHUTDOWN,
     CONF_AUTOMATIC,
     CONF_DRY_RUN,
     CONF_GITHUB_TOKEN,
@@ -55,7 +56,11 @@ async def test_happy_path_pins_fetched_host_key(hass, mocks) -> None:
     assert result["title"] == "Octo-Org"
     assert result["data"][CONF_SSH_KNOWN_HOST_KEY] == "ssh-ed25519 AAAAFETCHED"
     assert result["data"]["excluded_repos"] == ["old-repo"]
-    assert result["result"].options == {CONF_AUTOMATIC: False, CONF_DRY_RUN: True}
+    assert result["result"].options == {
+        CONF_AUTOMATIC: False,
+        CONF_AUTO_SHUTDOWN: False,
+        CONF_DRY_RUN: True,
+    }
     assert result["result"].unique_id == "octo-org"
     mocks.github.validate.assert_awaited_once_with("Octo-Org")
     await hass.async_block_till_done()

@@ -9,7 +9,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import CONF_AUTOMATIC, CONF_DRY_RUN, CONF_ENABLED
+from .const import CONF_AUTO_SHUTDOWN, CONF_AUTOMATIC, CONF_DRY_RUN, CONF_ENABLED
 from .entity import HomerunnerEntity, schedule_subentries
 from .models import HomerunnerConfigEntry
 
@@ -21,7 +21,13 @@ async def async_setup_entry(
     entry: HomerunnerConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    async_add_entities([RuleSwitch(entry, CONF_AUTOMATIC), RuleSwitch(entry, CONF_DRY_RUN)])
+    async_add_entities(
+        [
+            RuleSwitch(entry, CONF_AUTOMATIC),
+            RuleSwitch(entry, CONF_AUTO_SHUTDOWN),
+            RuleSwitch(entry, CONF_DRY_RUN),
+        ]
+    )
     for sub in schedule_subentries(entry):
         async_add_entities(
             [ScheduleEnabledSwitch(entry, sub.subentry_id, sub.title)],

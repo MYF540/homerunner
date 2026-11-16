@@ -331,6 +331,8 @@ class ScheduleRunner:
 
     def _plan_run_fetch(self, schedule: Schedule, run_id: int, delay: float, attempt: int) -> None:
         sid = schedule.id
+        if self._stopped:
+            return
         if sid in self._run_timers:
             self._run_timers.pop(sid)()
 

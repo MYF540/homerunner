@@ -225,3 +225,29 @@ async def test_default_now_is_aware_utc() -> None:
     c = FakeClient([])
     snap = await QueueWatcher(c, "org", ["self-hosted"], []).scan()  # type: ignore[arg-type]
     assert snap.scanned_at.tzinfo is not None
+
+
+@pytest.mark.asyncio
+async def test_persistent_per_repo_403_is_ignored_and_logged_once(caplog) -> None:
+    from custom_components.homerunner.github import GitHubForbiddenError
+
+    c = FakeClient([repo("locked"), repo("a")])
+    c.errors["org/locked"] = GitHubForbiddenError("no access", 403)
+    c.runs[("org/a", "queued")] = [{"id": 1}]
+    c.jobs[("org/a", 1)] = [job(1, 1, "a", "queued", ("self-hosted",))]
+    w = make(c)
+    for _ in range(3):
+        snap = await w.scan()
+        assert snap.ok and snap.error is None and not snap.auth_failed
+    assert [j.id for j in snap.queued] == [1]
+    assert caplog.text.count("org/locked") == 1
+
+
+@pytest.mark.asyncio
+async def test_per_repo_401_still_fails_scan() -> None:
+    from custom_components.homerunner.github import GitHubAuthError
+
+    c = FakeClient([repo("a")])
+    c.errors["org/a"] = GitHubAuthError("bad token", 401)
+    snap = await make(c).scan()
+    assert snap.ok is False and snap.auth_failed is True

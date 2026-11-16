@@ -1,0 +1,13 @@
+{
+  "domain": "homerunner",
+  "name": "Homerunner",
+  "codeowners": ["@MYF540"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/MYF540/homerunner",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/MYF540/homerunner/issues",
+  "requirements": ["asyncssh>=2.14"],
+  "version": "0.1.0"
+}

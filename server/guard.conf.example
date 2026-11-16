@@ -1,0 +1,44 @@
+# /etc/homerunner/guard.conf - all keys are optional; defaults are shown.
+[guard]
+# lxd: runners live in LXD containers (reached with `lxc exec`).
+# host: runner services run directly on this host.
+mode = lxd
+
+# Containers to consider (space-free glob) and globs to skip (space separated). lxd mode only.
+container_glob = *
+container_exclude =
+
+# systemd unit glob of the runner services, and the process name that signals a running job.
+service_glob = actions.runner.*
+worker_process = Runner.Worker
+
+# Refuse shutdown while someone is logged in (from `who`); these users are ignored.
+refuse_if_users_logged_in = true
+ignore_users =
+
+# If this file exists, shutdown is refused (maintenance switch).
+inhibit_file = /etc/homerunner/inhibit
+
+# Executables in this directory run in sorted order before power-off
+# (env HOMERUNNER_EVENT=shutdown). Failures are reported but do not block.
+pre_shutdown_dir = /etc/homerunner/pre-shutdown.d
+hook_timeout = 60
+
+# Command that powers the machine off. Needs a sudoers rule for the SSH user.
+poweroff_command = sudo -n /usr/bin/systemctl poweroff
+
+# host mode only: prefix used to stop/start runner services (needs sudoers rules).
+host_systemctl = sudo -n /usr/bin/systemctl
+
+# Holds the lock file and the "planned-off" marker.
+# Falls back to ~/.local/state/homerunner when not writable.
+state_dir = /var/lib/homerunner
+
+# lxc binary (lxd mode).
+lxc = lxc
+
+# Timeout in seconds for each individual command.
+command_timeout = 60
+
+# true: do everything except the final poweroff (runners are stopped, marker written).
+dry_run = false

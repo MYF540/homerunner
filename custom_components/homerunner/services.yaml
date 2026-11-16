@@ -1,0 +1,66 @@
+wake:
+  fields:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: homerunner
+
+shutdown:
+  fields:
+    force:
+      required: false
+      default: false
+      selector:
+        boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: homerunner
+
+keep_awake:
+  fields:
+    duration:
+      required: false
+      default:
+        hours: 2
+      selector:
+        duration:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: homerunner
+
+dispatch:
+  fields:
+    schedule:
+      required: false
+      selector:
+        entity:
+          integration: homerunner
+    repository:
+      required: false
+      example: "octo-org/octo-repo"
+      selector:
+        text:
+    workflow:
+      required: false
+      example: "nightly.yml"
+      selector:
+        text:
+    ref:
+      required: false
+      example: "main"
+      selector:
+        text:
+    inputs:
+      required: false
+      selector:
+        object:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: homerunner

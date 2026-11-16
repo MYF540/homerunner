@@ -1,0 +1,435 @@
+#!/usr/bin/env python3
+"""homerunner-guard: safe power-off guard for a self-hosted GitHub Actions runner host.
+
+Run as an SSH forced command (SSH_ORIGINAL_COMMAND) or by hand (argv[1]).
+Commands: status, shutdown, cancel.  Prints exactly one JSON object on stdout.
+Python >= 3.8, standard library only.
+"""
+import configparser
+import datetime
+import fcntl
+import fnmatch
+import json
+import os
+import shlex
+import socket
+import subprocess
+import sys
+
+VERSION = 1
+DEFAULT_CONF = "/etc/homerunner/guard.conf"
+
+DEFAULTS = {
+    "mode": "lxd",
+    "container_glob": "*",
+    "container_exclude": "",
+    "service_glob": "actions.runner.*",
+    "worker_process": "Runner.Worker",
+    "refuse_if_users_logged_in": "true",
+    "ignore_users": "",
+    "inhibit_file": "/etc/homerunner/inhibit",
+    "pre_shutdown_dir": "/etc/homerunner/pre-shutdown.d",
+    "hook_timeout": "60",
+    "poweroff_command": "sudo -n /usr/bin/systemctl poweroff",
+    "host_systemctl": "sudo -n /usr/bin/systemctl",
+    "state_dir": "/var/lib/homerunner",
+    "lxc": "lxc",
+    "dry_run": "false",
+    "command_timeout": "60",
+}
+
+
+class CmdError(Exception):
+    """A command could not be run (missing binary, timeout, ...)."""
+
+
+def run_cmd(args, timeout=60, env=None):
+    """Run a command without a shell. Returns (returncode, stdout, stderr).
+
+    Tests replace this function. Raises CmdError if the command cannot run.
+    """
+    try:
+        p = subprocess.run(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, timeout=timeout, env=env,
+                           universal_newlines=True)
+    except subprocess.TimeoutExpired:
+        raise CmdError("timeout after %ss: %s" % (timeout, " ".join(args)))
+    except OSError as e:
+        raise CmdError("cannot run %s: %s" % (args[0] if args else "?", e))
+    return p.returncode, p.stdout, p.stderr
+
+
+def _bool(v):
+    return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
+def load_config(path):
+    cp = configparser.ConfigParser(interpolation=None)
+    try:
+        cp.read(path)
+    except configparser.Error as e:
+        raise ValueError("bad config %s: %s" % (path, e))
+    raw = dict(DEFAULTS)
+    if cp.has_section("guard"):
+        raw.update({k: v.strip() for k, v in cp.items("guard") if k in DEFAULTS})
+    cfg = dict(raw)
+    cfg["refuse_if_users_logged_in"] = _bool(raw["refuse_if_users_logged_in"])
+    cfg["dry_run"] = _bool(raw["dry_run"])
+    cfg["container_exclude"] = raw["container_exclude"].split()
+    cfg["ignore_users"] = raw["ignore_users"].split()
+    cfg["hook_timeout"] = int(raw["hook_timeout"])
+    cfg["command_timeout"] = int(raw["command_timeout"])
+    if cfg["mode"] not in ("lxd", "host"):
+        raise ValueError("mode must be lxd or host")
+    return cfg
+
+
+# --- discovery ---------------------------------------------------------------
+
+def _run(cfg, args, timeout=None, env=None):
+    return run_cmd(args, timeout or cfg["command_timeout"], env)
+
+
+def _systemctl_cmd(cfg, container):
+    if cfg["mode"] == "lxd":
+        return [cfg["lxc"], "exec", container, "--", "systemctl"]
+    return shlex.split(cfg["host_systemctl"])
+
+
+def _exec_prefix(cfg, container):
+    return [cfg["lxc"], "exec", container, "--"] if cfg["mode"] == "lxd" else []
+
+
+def _list_services(cfg, container):
+    rc, out, err = _run(cfg, _exec_prefix(cfg, container) + [
+        "systemctl", "list-units", "--type=service", "--all", "--plain",
+        "--no-legend", cfg["service_glob"]])
+    if rc != 0:
+        raise CmdError("list-units failed: %s" % (err.strip() or rc))
+    services = []
+    for line in out.splitlines():
+        parts = line.split()
+        if parts and fnmatch.fnmatchcase(parts[0], cfg["service_glob"]):
+            services.append(parts[0])
+    return services
+
+
+def _is_active(cfg, container, service):
+    rc, _, _ = _run(cfg, _exec_prefix(cfg, container) + ["systemctl", "is-active", "--quiet", service])
+    return rc == 0
+
+
+def _has_job(cfg, container):
+    rc, _, err = _run(cfg, _exec_prefix(cfg, container) + ["pgrep", "-f", cfg["worker_process"]])
+    if rc == 0:
+        return True
+    if rc == 1:  # pgrep: no process matched
+        return False
+    # Anything else (lxc/pgrep missing or failing) must never read as "no job".
+    raise CmdError("job check failed (rc %s): %s" % (rc, err.strip()))
+
+
+def _containers(cfg):
+    rc, out, err = _run(cfg, [cfg["lxc"], "list", "--format", "json"])
+    if rc != 0:
+        raise CmdError("lxc list failed: %s" % (err.strip() or rc))
+    try:
+        data = json.loads(out)
+    except ValueError:
+        raise CmdError("lxc list returned invalid JSON")
+    names = []
+    for c in data:
+        n = c.get("name", "")
+        if str(c.get("status", "")).lower() != "running":
+            continue
+        if not fnmatch.fnmatchcase(n, cfg["container_glob"]):
+            continue
+        if any(fnmatch.fnmatchcase(n, g) for g in cfg["container_exclude"]):
+            continue
+        names.append(n)
+    return sorted(names)
+
+
+def discover_runners(cfg):
+    """Return list of dicts: name, service, active, job, and internal 'container'."""
+    runners = []
+    if cfg["mode"] == "lxd":
+        for c in _containers(cfg):
+            services = _list_services(cfg, c)
+            if not services:
+                continue
+            job = _has_job(cfg, c)
+            for s in services:
+                name = c if len(services) == 1 else "%s/%s" % (c, s)
+                runners.append({"name": name, "service": s, "active": _is_active(cfg, c, s),
+                                "job": job, "container": c})
+    else:
+        for s in _list_services(cfg, None):
+            active = _is_active(cfg, None, s)
+            runners.append({"name": s, "service": s, "active": active,
+                            "job": _has_job(cfg, None) if active else False, "container": None})
+    return runners
+
+
+def public_runners(runners):
+    return [{k: r[k] for k in ("name", "service", "active", "job")} for r in runners]
+
+
+def logged_in_users(cfg, strict=False):
+    rc, out, err = _run(cfg, ["who"])
+    if rc != 0 and strict:
+        raise CmdError("who failed (rc %s): %s" % (rc, err.strip()))
+    users = []
+    if rc == 0:
+        for line in out.splitlines():
+            p = line.split()
+            if p and p[0] not in users and p[0] not in cfg["ignore_users"]:
+                users.append(p[0])
+    return users
+
+
+def read_uptime():
+    try:
+        with open("/proc/uptime") as f:
+            return int(float(f.read().split()[0]))
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def status_obj(cfg, runners=None):
+    if runners is None:
+        runners = discover_runners(cfg)
+    return {"version": VERSION, "hostname": socket.gethostname(),
+            "runners": public_runners(runners), "users": logged_in_users(cfg),
+            "inhibit": os.path.exists(cfg["inhibit_file"]), "uptime_seconds": read_uptime()}
+
+
+# --- state -------------------------------------------------------------------
+
+def resolve_state_dir(cfg):
+    for d in (cfg["state_dir"], os.path.expanduser("~/.local/state/homerunner")):
+        try:
+            os.makedirs(d, exist_ok=True)
+            if os.access(d, os.W_OK):
+                return d
+        except OSError:
+            continue
+    return None
+
+
+def marker_path(cfg):
+    d = resolve_state_dir(cfg)
+    return os.path.join(d, "planned-off") if d else None
+
+
+def remove_marker(cfg):
+    p = marker_path(cfg)
+    if p:
+        try:
+            os.remove(p)
+        except OSError:
+            pass
+
+
+# --- commands ----------------------------------------------------------------
+
+def _refused(reason, detail, runners=None):
+    return {"version": VERSION, "result": "refused", "reason": reason, "detail": detail,
+            "runners": public_runners(runners or [])}
+
+
+def _stop(cfg, r):
+    rc, _, err = _run(cfg, _systemctl_cmd(cfg, r["container"]) + ["stop", r["service"]])
+    if rc != 0:
+        raise CmdError("stop %s failed: %s" % (r["service"], err.strip() or rc))
+
+
+def _start(cfg, r):
+    rc, _, err = _run(cfg, _systemctl_cmd(cfg, r["container"]) + ["start", r["service"]])
+    return rc == 0, err.strip()
+
+
+def _restart_all(cfg, stopped):
+    problems = []
+    for r in reversed(stopped):
+        try:
+            ok, err = _start(cfg, r)
+        except CmdError as e:
+            ok, err = False, str(e)
+        if ok:
+            r["active"] = True
+        else:
+            problems.append("restart %s failed: %s" % (r["service"], err))
+    return problems
+
+
+def run_hooks(cfg):
+    d = cfg["pre_shutdown_dir"]
+    notes = []
+    try:
+        names = sorted(os.listdir(d))
+    except OSError:
+        return notes
+    env = dict(os.environ)
+    env["HOMERUNNER_EVENT"] = "shutdown"
+    for n in names:
+        p = os.path.join(d, n)
+        if not (os.path.isfile(p) and os.access(p, os.X_OK)):
+            continue
+        try:
+            rc, _, err = run_cmd([p], cfg["hook_timeout"], env)
+            if rc != 0:
+                notes.append("hook %s exited %s" % (n, rc))
+        except CmdError as e:
+            notes.append("hook %s: %s" % (n, e))
+    return notes
+
+
+def cmd_shutdown(cfg, out):
+    """Returns result object; if accepted and not dry_run, poweroff is run via `out` flush first."""
+    state_dir = resolve_state_dir(cfg)
+    lockf = None
+    if state_dir:
+        lockf = open(os.path.join(state_dir, "guard.lock"), "w")
+        try:
+            fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            lockf.close()
+            return _refused("error", "another shutdown is in progress"), False
+    try:
+        return _shutdown_locked(cfg, out)
+    finally:
+        if lockf:
+            lockf.close()
+
+
+def _shutdown_locked(cfg, out):
+    stopped = []
+    runners = []
+    try:
+        if os.path.exists(cfg["inhibit_file"]):
+            return _refused("inhibited", "inhibit file exists: %s" % cfg["inhibit_file"]), False
+        if cfg["refuse_if_users_logged_in"]:
+            users = logged_in_users(cfg, strict=True)
+            if users:
+                return _refused("users_logged_in", "users logged in: %s" % ", ".join(users)), False
+        runners = discover_runners(cfg)
+        busy = [r["name"] for r in runners if r["job"]]
+        if busy:
+            return _refused("job_running", "job running on: %s" % ", ".join(busy), runners), False
+        for r in runners:
+            if not r["active"]:
+                continue
+            # re-check right before stopping
+            if _has_job(cfg, r["container"]):
+                r["job"] = True
+                problems = _restart_all(cfg, stopped)
+                detail = "job started on %s during shutdown; restarted %d runner(s)" % (r["name"], len(stopped))
+                if problems:
+                    detail += "; " + "; ".join(problems)
+                return _refused("job_running", detail, runners), False
+            _stop(cfg, r)
+            r["active"] = False
+            stopped.append(r)
+        # a job may have been picked up between the last check and the stop
+        for r in stopped:
+            if _has_job(cfg, r["container"]):
+                r["job"] = True
+                problems = _restart_all(cfg, stopped)
+                detail = "job found on %s after stopping; restarted %d runner(s)" % (
+                    r["name"], len(stopped))
+                if problems:
+                    detail += "; " + "; ".join(problems)
+                return _refused("job_running", detail, runners), False
+    except CmdError as e:
+        problems = _restart_all(cfg, stopped)
+        detail = str(e)
+        if problems:
+            detail += "; " + "; ".join(problems)
+        return _refused("error", detail, runners), False
+
+    notes = run_hooks(cfg)
+    detail = "all runners stopped" if stopped else "no active runners"
+    if notes:
+        detail += "; " + "; ".join(notes)
+    mp = marker_path(cfg)
+    if mp:
+        try:
+            with open(mp, "w") as f:
+                f.write(datetime.datetime.now(datetime.timezone.utc).isoformat() + "\n")
+        except OSError as e:
+            detail += "; cannot write marker: %s" % e
+    if cfg["dry_run"]:
+        detail += "; dry_run: poweroff skipped"
+    result = {"version": VERSION, "result": "accepted", "reason": None, "detail": detail,
+              "runners": public_runners(runners)}
+    return result, not cfg["dry_run"]
+
+
+def cmd_cancel(cfg):
+    runners = discover_runners(cfg)
+    errors = []
+    for r in runners:
+        if not r["active"]:
+            try:
+                ok, err = _start(cfg, r)
+            except CmdError as e:
+                ok, err = False, str(e)
+            if ok:
+                r["active"] = True
+            else:
+                errors.append("start %s failed: %s" % (r["service"], err))
+    remove_marker(cfg)
+    obj = status_obj(cfg, runners)
+    obj["result"] = "ok"
+    if errors:
+        obj["result"] = "error"
+        obj["detail"] = "; ".join(errors)
+    return obj
+
+
+def main(argv=None, env=None, stdout=None):
+    argv = sys.argv if argv is None else argv
+    env = os.environ if env is None else env
+    stdout = sys.stdout if stdout is None else stdout
+
+    def emit(obj):
+        stdout.write(json.dumps(obj) + "\n")
+        stdout.flush()
+
+    command = env.get("SSH_ORIGINAL_COMMAND")
+    if command is None:
+        command = argv[1] if len(argv) > 1 else ""
+    command = command.strip()
+    if command not in ("status", "shutdown", "cancel"):
+        emit({"version": VERSION, "result": "refused", "reason": "error", "detail": "unknown command"})
+        return 2
+    try:
+        cfg = load_config(env.get("HOMERUNNER_GUARD_CONF", DEFAULT_CONF))
+        if command == "status":
+            emit(status_obj(cfg))
+        elif command == "cancel":
+            emit(cmd_cancel(cfg))
+        else:
+            result, do_poweroff = cmd_shutdown(cfg, stdout)
+            emit(result)
+            if do_poweroff:
+                try:
+                    rc, _, err = run_cmd(shlex.split(cfg["poweroff_command"]), cfg["command_timeout"])
+                    failed = None if rc == 0 else "poweroff exited %s: %s" % (rc, err.strip())
+                except CmdError as e:
+                    failed = str(e)
+                if failed:
+                    remove_marker(cfg)
+                    try:  # the runners were stopped for a shutdown that did not happen
+                        cmd_cancel(cfg)
+                    except (CmdError, OSError) as e:
+                        sys.stderr.write("homerunner-guard: restart failed: %s\n" % e)
+                    sys.stderr.write("homerunner-guard: %s\n" % failed)
+    except (CmdError, ValueError, OSError) as e:
+        emit({"version": VERSION, "result": "refused", "reason": "error", "detail": str(e)})
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

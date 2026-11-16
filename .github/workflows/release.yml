@@ -12,7 +12,7 @@ jobs:
     name: Build and upload zip
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set version from tag in manifest (zip only, no commit)
         env:
           TAG: ${{ github.event.release.tag_name }}

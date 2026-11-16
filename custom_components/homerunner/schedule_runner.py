@@ -243,9 +243,7 @@ class ScheduleRunner:
             dispatch_token=token,
         )
 
-    def with_overrides(
-        self, schedule: Schedule, ref: str | None, inputs: dict | None
-    ) -> Schedule:
+    def with_overrides(self, schedule: Schedule, ref: str | None, inputs: dict | None) -> Schedule:
         return replace(
             schedule,
             ref=ref or schedule.ref,
@@ -262,9 +260,7 @@ class ScheduleRunner:
 
     async def async_dispatch(self, schedule: Schedule) -> DispatchResult:
         """Dispatch and record the result (awaits the retries)."""
-        result = await dispatch_with_retry(
-            self._github, schedule, fallback_token=self._token
-        )
+        result = await dispatch_with_retry(self._github, schedule, fallback_token=self._token)
         tracked = schedule.id in self.schedules
         if tracked:
             self.states[schedule.id] = ScheduleState(
@@ -314,9 +310,7 @@ class ScheduleRunner:
             if tracked and result.run_id:
                 self._plan_run_fetch(schedule, result.run_id, RUN_FETCH_DELAY, 1)
         else:
-            self._hass.bus.async_fire(
-                EVENT_DISPATCH_FAILED, {**payload, "error": result.error}
-            )
+            self._hass.bus.async_fire(EVENT_DISPATCH_FAILED, {**payload, "error": result.error})
             _LOGGER.warning(
                 "Dispatch of %s/%s failed: %s",
                 schedule.repository,
@@ -332,16 +326,10 @@ class ScheduleRunner:
         """After a restart: look again at runs that were not finished."""
         for sid, state in self.states.items():
             schedule = self.schedules.get(sid)
-            if (
-                schedule is not None
-                and state.run_id
-                and state.run_status != "completed"
-            ):
+            if schedule is not None and state.run_id and state.run_status != "completed":
                 self._plan_run_fetch(schedule, state.run_id, 30, 1)
 
-    def _plan_run_fetch(
-        self, schedule: Schedule, run_id: int, delay: float, attempt: int
-    ) -> None:
+    def _plan_run_fetch(self, schedule: Schedule, run_id: int, delay: float, attempt: int) -> None:
         sid = schedule.id
         if sid in self._run_timers:
             self._run_timers.pop(sid)()
@@ -371,8 +359,5 @@ class ScheduleRunner:
             state.run_conclusion = run.get("conclusion")
             state.run_url = run.get("html_url")
             self._on_change()
-        if (
-            (run is None or state.run_status != "completed")
-            and attempt < RUN_FETCH_MAX_ATTEMPTS
-        ):
+        if (run is None or state.run_status != "completed") and attempt < RUN_FETCH_MAX_ATTEMPTS:
             self._plan_run_fetch(schedule, run_id, RUN_REFETCH_DELAY, attempt + 1)

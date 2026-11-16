@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 from types import SimpleNamespace
 
@@ -36,7 +35,7 @@ class FakeConn:
         self.commands: list[tuple[str, float | None]] = []
         self.closed = False
 
-    async def run(self, cmd, check=False, timeout=None):
+    async def run(self, cmd, check=False, timeout=None):  # noqa: ASYNC109 - mirrors asyncssh
         self.commands.append((cmd, timeout))
         if self.run_exc:
             raise self.run_exc
@@ -102,7 +101,9 @@ async def test_status_inactive_runner(connect, key):
 
 @pytest.mark.asyncio
 async def test_shutdown_accepted(connect, key):
-    connect.conn.stdout = json.dumps({"version": 1, "result": "accepted", "reason": None, "detail": "ok", "runners": []})
+    connect.conn.stdout = json.dumps(
+        {"version": 1, "result": "accepted", "reason": None, "detail": "ok", "runners": []}
+    )
     res = await make(key).shutdown()
     assert res.accepted and res.reason is None and res.detail == "ok"
     assert connect.conn.commands == [("shutdown", 120)]
@@ -110,7 +111,9 @@ async def test_shutdown_accepted(connect, key):
 
 @pytest.mark.asyncio
 async def test_shutdown_refused(connect, key):
-    connect.conn.stdout = json.dumps({"version": 1, "result": "refused", "reason": "job_running", "detail": "busy"})
+    connect.conn.stdout = json.dumps(
+        {"version": 1, "result": "refused", "reason": "job_running", "detail": "busy"}
+    )
     res = await make(key).shutdown()
     assert not res.accepted and res.reason == "job_running" and res.detail == "busy"
 
@@ -157,7 +160,7 @@ async def test_status_protocol_errors(connect, key, stdout):
         asyncssh.PermissionDenied("denied"),
         asyncssh.HostKeyNotVerifiable("bad key"),
         ConnectionRefusedError("refused"),
-        asyncio.TimeoutError(),
+        TimeoutError(),
         OSError("unreachable"),
     ],
 )

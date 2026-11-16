@@ -111,7 +111,7 @@ class RedfishClient:
                         return {}
                     raise BmcError(f"Invalid JSON from {uri}") from err
                 return data if isinstance(data, dict) else {}
-        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as err:
+        except (TimeoutError, aiohttp.ClientError, OSError) as err:
             raise BmcConnectionError(f"Cannot reach BMC: {err}") from err
 
     async def _get_optional(self, uri: str | None) -> dict[str, Any] | None:
@@ -192,9 +192,7 @@ class RedfishClient:
 
     async def _reset(self, reset_type: str) -> None:
         async def _do() -> None:
-            target = self._reset_target or (
-                f"{self._system_uri}/Actions/ComputerSystem.Reset"
-            )
+            target = self._reset_target or (f"{self._system_uri}/Actions/ComputerSystem.Reset")
             await self._request("POST", target, {"ResetType": reset_type})
 
         await self._with_rediscovery(_do)
@@ -236,7 +234,7 @@ class RedfishClient:
 
             for key in ("EnvironmentMetrics", "PowerSubsystem"):
                 res = await self._get_optional(_link(chassis, key))
-                reading = ((res or {}).get("PowerWatts") or {})
+                reading = (res or {}).get("PowerWatts") or {}
                 if isinstance(reading, dict):
                     watts = _as_float(reading.get("Reading"))
                     if watts is not None:
@@ -274,9 +272,7 @@ class _NullProtocol(asyncio.DatagramProtocol):
     pass
 
 
-async def send_magic_packet(
-    mac: str, broadcast: str = "255.255.255.255", port: int = 9
-) -> None:
+async def send_magic_packet(mac: str, broadcast: str = "255.255.255.255", port: int = 9) -> None:
     """Send a Wake-on-LAN magic packet via UDP broadcast."""
     packet = build_magic_packet(mac)
     loop = asyncio.get_running_loop()

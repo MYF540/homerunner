@@ -72,7 +72,9 @@ class Clock:
         return self.t
 
 
-def make(client: FakeClient, labels=("self-hosted", "linux"), excluded=(), clock=None) -> QueueWatcher:
+def make(
+    client: FakeClient, labels=("self-hosted", "linux"), excluded=(), clock=None
+) -> QueueWatcher:
     return QueueWatcher(client, "org", list(labels), list(excluded), clock or Clock())  # type: ignore[arg-type]
 
 

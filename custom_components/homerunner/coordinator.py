@@ -26,9 +26,7 @@ SERVER_INTERVAL = timedelta(seconds=30)
 class QueueCoordinator(DataUpdateCoordinator[QueueSnapshot]):
     """Scans GitHub for queued and running jobs."""
 
-    def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, watcher: QueueWatcher
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, watcher: QueueWatcher) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -42,9 +40,7 @@ class QueueCoordinator(DataUpdateCoordinator[QueueSnapshot]):
         snapshot = await self._watcher.scan()
         if snapshot.auth_failed:
             raise ConfigEntryAuthFailed("GitHub token rejected")
-        self.update_interval = (
-            QUEUE_INTERVAL_THROTTLED if snapshot.throttled else QUEUE_INTERVAL
-        )
+        self.update_interval = QUEUE_INTERVAL_THROTTLED if snapshot.throttled else QUEUE_INTERVAL
         return snapshot
 
 

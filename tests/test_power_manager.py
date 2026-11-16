@@ -26,8 +26,19 @@ def rules(**kw) -> Rules:
     return Rules(**base)
 
 
-def obs(now, power=ON, *, ready=True, queued=0, running=0, github_ok=True, next_schedule=None,
-        prewake=False, oldest=None, local_date=None) -> Observation:
+def obs(
+    now,
+    power=ON,
+    *,
+    ready=True,
+    queued=0,
+    running=0,
+    github_ok=True,
+    next_schedule=None,
+    prewake=False,
+    oldest=None,
+    local_date=None,
+) -> Observation:
     return Observation(
         now=now,
         local_date=local_date or now.date(),

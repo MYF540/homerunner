@@ -261,7 +261,8 @@ async def test_subentry_add_and_reconfigure(hass, mock_entry, mocks) -> None:
     )
     assert result["errors"] == {"inputs": "invalid_inputs"}
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {**SCHEDULE_INPUT, "inputs": "[1]", "repository": "nope", "timezone": "Mars/Base"}
+        result["flow_id"],
+        {**SCHEDULE_INPUT, "inputs": "[1]", "repository": "nope", "timezone": "Mars/Base"},
     )
     assert result["errors"] == {
         "repository": "invalid_repository",
@@ -287,7 +288,14 @@ async def test_subentry_add_and_reconfigure(hass, mock_entry, mocks) -> None:
     )
     assert result["step_id"] == "reconfigure"
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {**SCHEDULE_INPUT, "name": "Nightly 2", "ref": "main", "weekdays": ["6"], "dispatch_token": ""}
+        result["flow_id"],
+        {
+            **SCHEDULE_INPUT,
+            "name": "Nightly 2",
+            "ref": "main",
+            "weekdays": ["6"],
+            "dispatch_token": "",
+        },
     )
     assert result["type"] is FlowResultType.ABORT and result["reason"] == "reconfigure_successful"
     await hass.async_block_till_done()
@@ -307,3 +315,77 @@ async def test_subentry_needs_a_weekday(hass, mock_entry, mocks) -> None:
         result["flow_id"], {**SCHEDULE_INPUT, "weekdays": []}
     )
     assert result["errors"] == {"weekdays": "no_weekdays"}
+
+
+# ---------------------------------------------------------------------- reconfigure
+
+
+async def test_reconfigure_given_host_key(hass, mock_entry, mocks) -> None:
+    result = await mock_entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM and result["step_id"] == "reconfigure"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            **SERVER_INPUT,
+            "bmc_host": "bmc2.example",
+            "ssh_host_key": "ssh-ed25519 AAAANEW",
+            "wol_mac": "aa:bb:cc:dd:ee:ff",
+        },
+    )
+    assert result["type"] is FlowResultType.ABORT and result["reason"] == "reconfigure_successful"
+    assert mock_entry.data["bmc_host"] == "bmc2.example"
+    assert mock_entry.data["wol_mac"] == "aa:bb:cc:dd:ee:ff"
+    assert mock_entry.data[CONF_SSH_KNOWN_HOST_KEY] == "ssh-ed25519 AAAANEW"
+    assert mock_entry.data[CONF_GITHUB_TOKEN]  # untouched
+    mocks.guard.fetch_host_key.assert_not_awaited()
+    await hass.async_block_till_done()
+
+
+async def test_reconfigure_fetches_and_confirms_host_key(hass, mock_entry, mocks) -> None:
+    result = await mock_entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], SERVER_INPUT)
+    assert result["step_id"] == "reconfigure_host_key"
+    assert "AAAAFETCHED" in result["description_placeholders"]["host_key"]
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert result["type"] is FlowResultType.ABORT and result["reason"] == "reconfigure_successful"
+    assert mock_entry.data[CONF_SSH_KNOWN_HOST_KEY] == "ssh-ed25519 AAAAFETCHED"
+    assert "wol_mac" not in mock_entry.data
+    await hass.async_block_till_done()
+
+
+async def test_reconfigure_errors_then_success(hass, mock_entry, mocks) -> None:
+    result = await mock_entry.start_reconfigure_flow(hass)
+    flow = hass.config_entries.flow
+    given = {**SERVER_INPUT, "ssh_host_key": "ssh-ed25519 AAAAGIVEN"}
+
+    result = await flow.async_configure(result["flow_id"], {**given, "wol_mac": "nonsense"})
+    assert result["errors"] == {"wol_mac": "invalid_mac"}
+
+    mocks.redfish.get_power_state.side_effect = BmcAuthError("no")
+    result = await flow.async_configure(result["flow_id"], given)
+    assert result["errors"] == {"base": "invalid_auth_bmc"}
+    mocks.redfish.get_power_state.side_effect = BmcConnectionError("down")
+    result = await flow.async_configure(result["flow_id"], given)
+    assert result["errors"] == {"base": "cannot_connect_bmc"}
+    mocks.redfish.get_power_state.side_effect = None
+
+    mocks.guard.status.side_effect = GuardConnectionError("down")
+    result = await flow.async_configure(result["flow_id"], given)
+    assert result["errors"] == {"base": "cannot_connect_guard"}
+    mocks.guard.status.side_effect = GuardProtocolError("odd")
+    result = await flow.async_configure(result["flow_id"], given)
+    assert result["errors"] == {"base": "guard_protocol_error"}
+    mocks.guard.status.side_effect = None
+
+    result = await flow.async_configure(result["flow_id"], given)
+    assert result["type"] is FlowResultType.ABORT and result["reason"] == "reconfigure_successful"
+    assert mock_entry.data[CONF_SSH_KNOWN_HOST_KEY] == "ssh-ed25519 AAAAGIVEN"
+    await hass.async_block_till_done()
+
+
+async def test_reconfigure_host_key_fetch_failure(hass, mock_entry, mocks) -> None:
+    result = await mock_entry.start_reconfigure_flow(hass)
+    mocks.guard.fetch_host_key.side_effect = GuardConnectionError("down")
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], SERVER_INPUT)
+    assert result["step_id"] == "reconfigure"
+    assert result["errors"] == {"base": "cannot_connect_guard"}

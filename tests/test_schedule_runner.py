@@ -94,7 +94,10 @@ async def test_fires_at_the_right_time(hass, sched_entry, mocks, freezer) -> Non
 
     attrs = hass.states.get("sensor.schedule_nightly_last_dispatch").attributes
     assert attrs["run_id"] == 4242 and attrs["result"] == "ok"
-    assert hass.states.get("sensor.schedule_nightly_next_dispatch").state == "2026-11-17T02:00:00+00:00"
+    assert (
+        hass.states.get("sensor.schedule_nightly_next_dispatch").state
+        == "2026-11-17T02:00:00+00:00"
+    )
 
     # the last run is looked up two minutes later
     await _fire(hass, freezer, datetime(2026, 11, 16, 2, 2, 5, tzinfo=UTC))
@@ -151,7 +154,9 @@ async def test_unauthorized_dispatch_creates_repair(hass, sched_entry, mocks, fr
         "button", "press", {"entity_id": "button.schedule_nightly_dispatch_now"}, blocking=True
     )
     await hass.async_block_till_done(wait_background_tasks=True)
-    assert ir.async_get(hass).async_get_issue(DOMAIN, f"token_invalid_{sched_entry.entry_id}") is None
+    assert (
+        ir.async_get(hass).async_get_issue(DOMAIN, f"token_invalid_{sched_entry.entry_id}") is None
+    )
 
 
 async def test_forbidden_is_not_a_repair(hass, sched_entry, mocks, freezer) -> None:
@@ -159,7 +164,9 @@ async def test_forbidden_is_not_a_repair(hass, sched_entry, mocks, freezer) -> N
     mocks.github.dispatch.side_effect = GitHubForbiddenError("no", 403)
     await _setup(hass, sched_entry)
     await _fire(hass, freezer, datetime(2026, 11, 16, 2, 0, 1, tzinfo=UTC))
-    assert ir.async_get(hass).async_get_issue(DOMAIN, f"token_invalid_{sched_entry.entry_id}") is None
+    assert (
+        ir.async_get(hass).async_get_issue(DOMAIN, f"token_invalid_{sched_entry.entry_id}") is None
+    )
     assert mocks.github.dispatch.await_count == 1
 
 
@@ -178,13 +185,19 @@ async def test_prewake_wakes_server_before_fire(hass, sched_entry, mocks, freeze
     assert data.manager.machine.last_wake_reason.value == "schedule"
 
 
-async def test_dispatch_service_with_schedule_and_overrides(hass, sched_entry, mocks, freezer) -> None:
+async def test_dispatch_service_with_schedule_and_overrides(
+    hass, sched_entry, mocks, freezer
+) -> None:
     freezer.move_to("2026-11-16 01:00:00+00:00")
     await _setup(hass, sched_entry)
     await hass.services.async_call(
         DOMAIN,
         "dispatch",
-        {"schedule": "button.schedule_nightly_dispatch_now", "ref": "release", "inputs": {"x": "1"}},
+        {
+            "schedule": "button.schedule_nightly_dispatch_now",
+            "ref": "release",
+            "inputs": {"x": "1"},
+        },
         blocking=True,
     )
     await hass.async_block_till_done(wait_background_tasks=True)
@@ -199,10 +212,15 @@ async def test_dispatch_service_adhoc_and_errors(hass, sched_entry, mocks, freez
     freezer.move_to("2026-11-16 01:00:00+00:00")
     await _setup(hass, sched_entry)
     await hass.services.async_call(
-        DOMAIN, "dispatch", {"repository": "o/r", "workflow": "w.yml", "inputs": '{"a": "b"}'}, blocking=True
+        DOMAIN,
+        "dispatch",
+        {"repository": "o/r", "workflow": "w.yml", "inputs": '{"a": "b"}'},
+        blocking=True,
     )
     await hass.async_block_till_done(wait_background_tasks=True)
-    mocks.github.dispatch.assert_awaited_once_with("o/r", "w.yml", "main", {"a": "b"}, token="ghp_secret_token")
+    mocks.github.dispatch.assert_awaited_once_with(
+        "o/r", "w.yml", "main", {"a": "b"}, token="ghp_secret_token"
+    )
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(DOMAIN, "dispatch", {"repository": "o/r"}, blocking=True)
     with pytest.raises(ServiceValidationError):
@@ -213,7 +231,9 @@ async def test_dispatch_service_adhoc_and_errors(hass, sched_entry, mocks, freez
         )
 
 
-async def test_last_dispatch_survives_restart(hass, sched_entry, mocks, freezer, hass_storage) -> None:
+async def test_last_dispatch_survives_restart(
+    hass, sched_entry, mocks, freezer, hass_storage
+) -> None:
     freezer.move_to("2026-11-16 01:00:00+00:00")
     mocks.github.dispatch.return_value = 7
     await _setup(hass, sched_entry)

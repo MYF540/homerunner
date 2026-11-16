@@ -51,6 +51,32 @@
         "data": {
           "github_token": "Zugriffstoken"
         }
+      },
+      "reconfigure": {
+        "title": "Server-Einstellungen ändern",
+        "description": "Verbindung zum BMC (Redfish) und zum Wächter-Skript auf dem Host (SSH). Die Angaben werden wie bei der Einrichtung geprüft. Bleibt der SSH-Host-Schlüssel leer, wird er neu abgerufen und kann auf der nächsten Seite bestätigt werden.",
+        "data": {
+          "bmc_host": "BMC-Adresse",
+          "bmc_username": "BMC-Benutzer",
+          "bmc_password": "BMC-Passwort",
+          "bmc_verify_ssl": "BMC-Zertifikat prüfen",
+          "wol_mac": "MAC-Adresse für Wake-on-LAN",
+          "ssh_host": "SSH-Host",
+          "ssh_port": "SSH-Port",
+          "ssh_username": "SSH-Benutzer",
+          "ssh_private_key": "Privater SSH-Schlüssel",
+          "ssh_host_key": "SSH-Host-Schlüssel"
+        },
+        "data_description": {
+          "bmc_host": "Hostname oder IP-Adresse des BMC.",
+          "wol_mac": "Optionaler zweiter Weg, den Server zu wecken.",
+          "ssh_private_key": "Privater Schlüssel (PEM oder OpenSSH, ohne Passphrase) des Wächter-Benutzers.",
+          "ssh_host_key": "Optional: öffentliche Host-Schlüssel-Zeile. Leer lassen, um den Schlüssel beim ersten Mal zu übernehmen."
+        }
+      },
+      "reconfigure_host_key": {
+        "title": "SSH-Host-Schlüssel bestätigen",
+        "description": "{host} hat diesen Host-Schlüssel vorgezeigt. Bestätigen Sie, dass es der Schlüssel Ihres Servers ist; er wird fest hinterlegt und bei jeder Verbindung geprüft.\n\n`{host_key}`"
       }
     },
     "error": {
@@ -68,7 +94,8 @@
     },
     "abort": {
       "already_configured": "Dieser Eigentümer ist bereits eingerichtet.",
-      "reauth_successful": "Das Token wurde aktualisiert."
+      "reauth_successful": "Das Token wurde aktualisiert.",
+      "reconfigure_successful": "Die Server-Einstellungen wurden aktualisiert."
     }
   },
   "config_subentries": {

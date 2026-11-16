@@ -1,9 +1,9 @@
 """Tests for server/homerunner-guard using a fake command runner (no root, no lxc)."""
+
 import importlib.machinery
 import importlib.util
 import io
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -28,8 +28,8 @@ class Fake:
         self.mode = mode
         self.calls = []
         self.who = ""
-        self.fail = set()          # substrings: command containing it fails (rc 1)
-        self.raise_on = set()      # substrings: raises CmdError
+        self.fail = set()  # substrings: command containing it fails (rc 1)
+        self.raise_on = set()  # substrings: raises CmdError
         self.job_after_pgrep = {}  # container -> number of pgrep calls after which job appears
         self.pgrep_count = {}
         self.poweroff = []
@@ -48,12 +48,17 @@ class Fake:
         if args[0] == "who":
             return 0, self.who, ""
         if args[0] == "lxc" and args[1] == "list":
-            return 0, json.dumps([{"name": n, "status": d.get("status", "Running")}
-                                  for n, d in self.c.items()]), ""
+            return (
+                0,
+                json.dumps(
+                    [{"name": n, "status": d.get("status", "Running")} for n, d in self.c.items()]
+                ),
+                "",
+            )
         if args[0] == "lxc" and args[1] == "exec":
             return self.inside(args[2], args[4:])
         if args[:3] == ["sudo", "-n", "/usr/bin/systemctl"] and args[3] in ("stop", "start"):
-            return self.inside("host", ["systemctl"] + args[3:])
+            return self.inside("host", ["systemctl", *args[3:]])
         if args[0] == "/usr/bin/true-poweroff" or "poweroff" in line:
             self.poweroff.append(line)
             return 0, "", ""
@@ -62,7 +67,7 @@ class Fake:
             return (1, "", "") if args[0].endswith("20-bad") else (0, "", "")
         if args[0] in ("systemctl", "pgrep"):
             return self.inside("host", args)
-        raise AssertionError("unexpected command %r" % (args,))
+        raise AssertionError(f"unexpected command {args!r}")
 
     def inside(self, c, args):
         d = self.c[c]
@@ -74,9 +79,13 @@ class Fake:
         assert args[0] == "systemctl"
         if args[1] == "list-units":
             import fnmatch
+
             glob = args[-1]
-            out = "".join("%s loaded %s running x\n" % (s, "active" if a else "inactive")
-                          for s, a in d["services"].items() if fnmatch.fnmatchcase(s, glob))
+            out = "".join(
+                f"{s} loaded {'active' if a else 'inactive'} running x\n"
+                for s, a in d["services"].items()
+                if fnmatch.fnmatchcase(s, glob)
+            )
             return 0, out, ""
         if args[1] == "is-active":
             return (0 if d["services"][args[-1]] else 3), "", ""
@@ -100,15 +109,18 @@ def env(tmp_path, monkeypatch):
 
     def write(extra="", mode="lxd"):
         conf.write_text(
-            "[guard]\nmode = %s\ninhibit_file = %s\npre_shutdown_dir = %s\nstate_dir = %s\n"
-            "poweroff_command = sudo -n /usr/bin/systemctl poweroff\n%s\n"
-            % (mode, inhibit, hooks, state, extra))
+            f"[guard]\nmode = {mode}\ninhibit_file = {inhibit}\npre_shutdown_dir = {hooks}\nstate_dir = {state}\n"
+            "poweroff_command = sudo -n /usr/bin/systemctl poweroff\n"
+            f"{extra}\n"
+        )
 
     write()
-    fake = Fake({
-        "runner-1": {"services": {"actions.runner.example-org.r1.service": True}, "job": False},
-        "runner-2": {"services": {"actions.runner.example-org.r2.service": True}, "job": False},
-    })
+    fake = Fake(
+        {
+            "runner-1": {"services": {"actions.runner.example-org.r1.service": True}, "job": False},
+            "runner-2": {"services": {"actions.runner.example-org.r2.service": True}, "job": False},
+        }
+    )
     fake.mod = mod
     monkeypatch.setattr(mod, "run_cmd", fake)
     monkeypatch.setattr(mod, "read_uptime", lambda: 1234)
@@ -142,8 +154,12 @@ def test_status_lxd(env):
     assert rc == 0
     assert o["version"] == 1 and o["inhibit"] is False and o["uptime_seconds"] == 1234
     assert o["users"] == ["alice"]
-    assert o["runners"][0] == {"name": "runner-1", "service": "actions.runner.example-org.r1.service",
-                               "active": True, "job": False}
+    assert o["runners"][0] == {
+        "name": "runner-1",
+        "service": "actions.runner.example-org.r1.service",
+        "active": True,
+        "job": False,
+    }
     assert len(o["runners"]) == 2 and o["hostname"]
 
 
@@ -171,11 +187,20 @@ def test_service_glob_filters(env):
 
 def test_status_host_mode(env):
     env.write(mode="host")
-    env.fake.c = {"host": {"services": {"actions.runner.example-org.a.service": True,
-                                        "actions.runner.example-org.b.service": False}, "job": False}}
+    env.fake.c = {
+        "host": {
+            "services": {
+                "actions.runner.example-org.a.service": True,
+                "actions.runner.example-org.b.service": False,
+            },
+            "job": False,
+        }
+    }
     _, o = env.call("status")
     assert [(r["name"], r["active"]) for r in o["runners"]] == [
-        ("actions.runner.example-org.a.service", True), ("actions.runner.example-org.b.service", False)]
+        ("actions.runner.example-org.a.service", True),
+        ("actions.runner.example-org.b.service", False),
+    ]
     assert not any(c[0] == "lxc" for c in env.fake.calls)
 
 
@@ -208,10 +233,18 @@ def test_shutdown_dry_run(env):
 
 def test_shutdown_host_mode(env):
     env.write(mode="host")
-    env.fake.c = {"host": {"services": {"actions.runner.example-org.a.service": True}, "job": False}}
+    env.fake.c = {
+        "host": {"services": {"actions.runner.example-org.a.service": True}, "job": False}
+    }
     _, o = env.call("shutdown")
     assert o["result"] == "accepted"
-    assert ["sudo", "-n", "/usr/bin/systemctl", "stop", "actions.runner.example-org.a.service"] in env.fake.calls
+    assert [
+        "sudo",
+        "-n",
+        "/usr/bin/systemctl",
+        "stop",
+        "actions.runner.example-org.a.service",
+    ] in env.fake.calls
 
 
 def test_refused_inhibit(env):
@@ -244,7 +277,9 @@ def test_job_appears_during_sequence(env):
     _, o = env.call("shutdown")
     assert o["result"] == "refused" and o["reason"] == "job_running"
     assert all(d["services"][s] for d in env.fake.c.values() for s in d["services"])
-    assert any(c[:2] == ["lxc", "exec"] and "start" in c and c[2] == "runner-1" for c in env.fake.calls)
+    assert any(
+        c[:2] == ["lxc", "exec"] and "start" in c and c[2] == "runner-1" for c in env.fake.calls
+    )
     assert env.fake.poweroff == [] and not (env.state / "planned-off").exists()
 
 
@@ -264,7 +299,12 @@ def test_lxc_missing_is_error(env):
 
 def test_unknown_command(env):
     rc, o = env.call("rm -rf /")
-    assert rc == 2 and o["result"] == "refused" and o["reason"] == "error" and o["detail"] == "unknown command"
+    assert (
+        rc == 2
+        and o["result"] == "refused"
+        and o["reason"] == "error"
+        and o["detail"] == "unknown command"
+    )
     rc, o = env.call("", via_ssh=False)
     assert rc == 2
 

@@ -79,7 +79,9 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 _ENTRY_FIELD = {vol.Optional(ATTR_CONFIG_ENTRY): cv.string}
 SERVICE_WAKE_SCHEMA = vol.Schema(_ENTRY_FIELD)
-SERVICE_SHUTDOWN_SCHEMA = vol.Schema({**_ENTRY_FIELD, vol.Optional(ATTR_FORCE, default=False): cv.boolean})
+SERVICE_SHUTDOWN_SCHEMA = vol.Schema(
+    {**_ENTRY_FIELD, vol.Optional(ATTR_FORCE, default=False): cv.boolean}
+)
 SERVICE_KEEP_AWAKE_SCHEMA = vol.Schema(
     {**_ENTRY_FIELD, vol.Optional(ATTR_DURATION, default={"hours": 2}): cv.time_period}
 )
@@ -215,24 +217,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: HomerunnerConfigEntry) 
 
 def _get_entry(hass: HomeAssistant, call: ServiceCall) -> HomerunnerConfigEntry:
     entries = [
-        e
-        for e in hass.config_entries.async_entries(DOMAIN)
-        if e.state is ConfigEntryState.LOADED
+        e for e in hass.config_entries.async_entries(DOMAIN) if e.state is ConfigEntryState.LOADED
     ]
     wanted = call.data.get(ATTR_CONFIG_ENTRY)
     if wanted:
         for entry in entries:
             if entry.entry_id == wanted or entry.title == wanted:
                 return entry
-        raise ServiceValidationError(
-            translation_domain=DOMAIN, translation_key="entry_not_found"
-        )
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="entry_not_found")
     if not entries:
         raise ServiceValidationError(translation_domain=DOMAIN, translation_key="no_entry")
     if len(entries) > 1:
-        raise ServiceValidationError(
-            translation_domain=DOMAIN, translation_key="multiple_entries"
-        )
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="multiple_entries")
     return entries[0]
 
 

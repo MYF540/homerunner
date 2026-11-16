@@ -151,8 +151,9 @@ async def dispatch_with_retry(
             run_id = await client.dispatch(
                 schedule.repository, schedule.workflow, schedule.ref, inputs, token=token
             )
-            return DispatchResult(ok=True, status=200 if run_id else 204, run_id=run_id,
-                                  attempts=attempts)
+            return DispatchResult(
+                ok=True, status=200 if run_id else 204, run_id=run_id, attempts=attempts
+            )
         except GitHubAuthError as err:
             return DispatchResult(False, err.status or 401, None, str(err), attempts, True)
         except GitHubRateLimitError as err:

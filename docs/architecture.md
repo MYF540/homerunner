@@ -37,37 +37,45 @@ tests/                 pytest + pytest-homeassistant-custom-component; tests/ser
 DOMAIN = "homerunner"
 # config entry data
 CONF_GITHUB_TOKEN = "github_token"
-CONF_API_BASE = "api_base"                  # default "https://api.github.com"
-CONF_OWNER = "owner"                        # organisation or user whose repos are watched
-CONF_EXCLUDED_REPOS = "excluded_repos"      # list[str] of repo names (without owner)
-CONF_RUNNER_LABELS = "runner_labels"        # list[str], default ["self-hosted"]
-CONF_BMC_HOST = "bmc_host"; CONF_BMC_USERNAME = "bmc_username"; CONF_BMC_PASSWORD = "bmc_password"
-CONF_BMC_VERIFY_SSL = "bmc_verify_ssl"      # default False (BMCs ship self-signed certs)
-CONF_WOL_MAC = "wol_mac"                    # optional
-CONF_SSH_HOST = "ssh_host"; CONF_SSH_PORT = "ssh_port"; CONF_SSH_USERNAME = "ssh_username"
-CONF_SSH_KEY = "ssh_private_key"            # PEM/OpenSSH text
-CONF_SSH_KNOWN_HOST_KEY = "ssh_host_key"    # optional public host key line; empty = accept and pin on first use
+CONF_API_BASE = "api_base"  # default "https://api.github.com"
+CONF_OWNER = "owner"  # organisation or user whose repos are watched
+CONF_EXCLUDED_REPOS = "excluded_repos"  # list[str] of repo names (without owner)
+CONF_RUNNER_LABELS = "runner_labels"  # list[str], default ["self-hosted"]
+CONF_BMC_HOST = "bmc_host"
+CONF_BMC_USERNAME = "bmc_username"
+CONF_BMC_PASSWORD = "bmc_password"
+CONF_BMC_VERIFY_SSL = "bmc_verify_ssl"  # default False (BMCs ship self-signed certs)
+CONF_WOL_MAC = "wol_mac"  # optional
+CONF_SSH_HOST = "ssh_host"
+CONF_SSH_PORT = "ssh_port"
+CONF_SSH_USERNAME = "ssh_username"
+CONF_SSH_KEY = "ssh_private_key"  # PEM/OpenSSH text
+CONF_SSH_KNOWN_HOST_KEY = (
+    "ssh_host_key"  # optional public host key line; empty = accept and pin on first use
+)
 # options (rules)
-CONF_IDLE_HOURS = "idle_hours"              # default 2.0, step 0.25
-CONF_SHORT_IDLE_MINUTES = "short_idle_minutes"   # default 20
-CONF_MIN_UPTIME_MINUTES = "min_uptime_minutes"   # default 15
-CONF_MAX_STARTS_PER_DAY = "max_starts_per_day"   # default 8
-CONF_FORCED_WAKE_DAYS = "forced_wake_days"       # default 5
-CONF_FORCED_WAKE_MINUTES = "forced_wake_minutes" # default 30
-CONF_WAKE_TIMEOUT_MINUTES = "wake_timeout_minutes" # default 10
-CONF_SCHEDULE_GUARD_MINUTES = "schedule_guard_minutes" # default 30
-CONF_QUEUE_ALERT_MINUTES = "queue_alert_minutes" # default 15
-CONF_AUTOMATIC = "automatic"                # default False on first setup
-CONF_DRY_RUN = "dry_run"                    # default True on first setup
+CONF_IDLE_HOURS = "idle_hours"  # default 2.0, step 0.25
+CONF_SHORT_IDLE_MINUTES = "short_idle_minutes"  # default 20
+CONF_MIN_UPTIME_MINUTES = "min_uptime_minutes"  # default 15
+CONF_MAX_STARTS_PER_DAY = "max_starts_per_day"  # default 8
+CONF_FORCED_WAKE_DAYS = "forced_wake_days"  # default 5
+CONF_FORCED_WAKE_MINUTES = "forced_wake_minutes"  # default 30
+CONF_WAKE_TIMEOUT_MINUTES = "wake_timeout_minutes"  # default 10
+CONF_SCHEDULE_GUARD_MINUTES = "schedule_guard_minutes"  # default 30
+CONF_QUEUE_ALERT_MINUTES = "queue_alert_minutes"  # default 15
+CONF_AUTOMATIC = "automatic"  # default False on first setup
+CONF_DRY_RUN = "dry_run"  # default True on first setup
 # schedule subentry (subentry_type "schedule")
-CONF_REPOSITORY = "repository"   # "owner/name"
-CONF_WORKFLOW = "workflow"       # file name or id
-CONF_REF = "ref"; CONF_INPUTS = "inputs"   # inputs: JSON object text
-CONF_TIME = "time"               # "HH:MM"
-CONF_WEEKDAYS = "weekdays"       # list[int] 0=Mon..6=Sun, default all
-CONF_TIMEZONE = "timezone"       # IANA name, default HA's timezone
-CONF_PREWAKE = "prewake"; CONF_PREWAKE_MINUTES = "prewake_minutes"   # default True, 15
-CONF_RETRIES = "retries"         # default 5
+CONF_REPOSITORY = "repository"  # "owner/name"
+CONF_WORKFLOW = "workflow"  # file name or id
+CONF_REF = "ref"
+CONF_INPUTS = "inputs"  # inputs: JSON object text
+CONF_TIME = "time"  # "HH:MM"
+CONF_WEEKDAYS = "weekdays"  # list[int] 0=Mon..6=Sun, default all
+CONF_TIMEZONE = "timezone"  # IANA name, default HA's timezone
+CONF_PREWAKE = "prewake"
+CONF_PREWAKE_MINUTES = "prewake_minutes"  # default True, 15
+CONF_RETRIES = "retries"  # default 5
 CONF_DISPATCH_TOKEN = "dispatch_token"  # optional, falls back to CONF_GITHUB_TOKEN
 SUBENTRY_SCHEDULE = "schedule"
 ```

@@ -113,7 +113,11 @@ class Mocks:
         self.github.rate_limit = RateLimit(5000, 4900, None)
         self.github.dispatch = AsyncMock(return_value=None)
         self.github.get_run = AsyncMock(
-            return_value={"status": "completed", "conclusion": "success", "html_url": "https://x/run"}
+            return_value={
+                "status": "completed",
+                "conclusion": "success",
+                "html_url": "https://x/run",
+            }
         )
         self.redfish = MagicMock()
         self.redfish.get_power_state = AsyncMock(return_value=PowerState.OFF)

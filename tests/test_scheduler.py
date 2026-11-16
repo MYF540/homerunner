@@ -203,11 +203,15 @@ async def test_rate_limit_short_reset_is_retried_long_is_not():
 
     long = GitHubRateLimitError("rl", 403, now + timedelta(minutes=30))
     c = FakeClient([long, 9])
-    res = await dispatch_with_retry(c, sched(), fallback_token="fb", sleep=Sleeper(), now=lambda: now)
+    res = await dispatch_with_retry(
+        c, sched(), fallback_token="fb", sleep=Sleeper(), now=lambda: now
+    )
     assert not res.ok and res.attempts == 1
 
     c = FakeClient([GitHubRateLimitError("rl", 429, None), 9])
-    res = await dispatch_with_retry(c, sched(), fallback_token="fb", sleep=Sleeper(), now=lambda: now)
+    res = await dispatch_with_retry(
+        c, sched(), fallback_token="fb", sleep=Sleeper(), now=lambda: now
+    )
     assert not res.ok and res.attempts == 1
 
 

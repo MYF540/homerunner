@@ -112,9 +112,7 @@ class GuardClient:
     def _known_hosts(self) -> Any:
         if self._known_host_key is None:
             return None
-        pattern = (
-            self._host if self._port == 22 else f"[{self._host}]:{self._port}"
-        )
+        pattern = self._host if self._port == 22 else f"[{self._host}]:{self._port}"
         return asyncssh.import_known_hosts(f"{pattern} {self._known_host_key}\n")
 
     async def _connect(self) -> asyncssh.SSHClientConnection:
@@ -129,18 +127,16 @@ class GuardClient:
                 connect_timeout=self._timeout,
                 login_timeout=self._timeout,
             )
-        except (asyncssh.Error, OSError, asyncio.TimeoutError, ValueError) as err:
+        except (TimeoutError, asyncssh.Error, OSError, ValueError) as err:
             raise GuardConnectionError(f"SSH connection failed: {err}") from err
 
-    async def _run(self, command: str, timeout: float) -> dict[str, Any]:
+    async def _run(self, command: str, timeout: float) -> dict[str, Any]:  # noqa: ASYNC109 - forwarded to asyncssh
         conn = await self._connect()
         try:
             try:
                 result = await conn.run(command, check=False, timeout=timeout)
-            except (asyncssh.Error, OSError, asyncio.TimeoutError) as err:
-                raise GuardConnectionError(
-                    f"Guard command '{command}' failed: {err}"
-                ) from err
+            except (TimeoutError, asyncssh.Error, OSError) as err:
+                raise GuardConnectionError(f"Guard command '{command}' failed: {err}") from err
         finally:
             conn.close()
         stdout = result.stdout
@@ -189,7 +185,7 @@ class GuardClient:
                 asyncssh.get_server_host_key(self._host, port=self._port),
                 self._timeout,
             )
-        except (asyncssh.Error, OSError, asyncio.TimeoutError) as err:
+        except (TimeoutError, asyncssh.Error, OSError) as err:
             raise GuardConnectionError(f"Cannot fetch host key: {err}") from err
         if key is None:
             raise GuardConnectionError("Server presented no host key")

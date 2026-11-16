@@ -119,14 +119,26 @@ _LOGGER = logging.getLogger(__name__)
 _REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
 
+_SERVER_KEYS = (
+    CONF_BMC_HOST,
+    CONF_BMC_USERNAME,
+    CONF_BMC_PASSWORD,
+    CONF_BMC_VERIFY_SSL,
+    CONF_WOL_MAC,
+    CONF_SSH_HOST,
+    CONF_SSH_PORT,
+    CONF_SSH_USERNAME,
+    CONF_SSH_KEY,
+    CONF_SSH_KNOWN_HOST_KEY,
+)
+
+
 def _password() -> TextSelector:
     return TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
 
 
 def _tags() -> SelectSelector:
-    return SelectSelector(
-        SelectSelectorConfig(options=[], custom_value=True, multiple=True)
-    )
+    return SelectSelector(SelectSelectorConfig(options=[], custom_value=True, multiple=True))
 
 
 def _number(minimum: float, maximum: float, step: float = 1) -> NumberSelector:
@@ -239,7 +251,9 @@ class HomerunnerConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
 
-    def _show_server(self, errors: dict[str, str], values: dict[str, Any] | None) -> ConfigFlowResult:
+    def _show_server(
+        self, errors: dict[str, str], values: dict[str, Any] | None
+    ) -> ConfigFlowResult:
         return self.async_show_form(
             step_id="server",
             data_schema=self.add_suggested_values_to_schema(self._server_schema(), values),
@@ -255,9 +269,8 @@ class HomerunnerConfigFlow(ConfigFlow, domain=DOMAIN):
             data.get(CONF_SSH_KNOWN_HOST_KEY),
         )
 
-    async def async_step_server(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        if user_input is None:
-            return self._show_server({}, self._server or None)
+    @staticmethod
+    def _normalize_server(user_input: Mapping[str, Any]) -> dict[str, Any]:
         data = dict(user_input)
         data[CONF_SSH_PORT] = int(data.get(CONF_SSH_PORT, DEFAULT_SSH_PORT))
         for key in (CONF_WOL_MAC, CONF_SSH_KNOWN_HOST_KEY):
@@ -265,17 +278,19 @@ class HomerunnerConfigFlow(ConfigFlow, domain=DOMAIN):
                 data.pop(key, None)
             else:
                 data[key] = data[key].strip()
-        self._server = data
+        return data
 
+    async def _check_server(self, data: Mapping[str, Any]) -> dict[str, str]:
+        """Validate MAC, SSH key and BMC access; return form errors (empty if fine)."""
         if CONF_WOL_MAC in data:
             try:
                 build_magic_packet(data[CONF_WOL_MAC])
             except ValueError:
-                return self._show_server({CONF_WOL_MAC: "invalid_mac"}, data)
+                return {CONF_WOL_MAC: "invalid_mac"}
         try:
             asyncssh.import_private_key(data[CONF_SSH_KEY])
         except (asyncssh.Error, ValueError, TypeError):
-            return self._show_server({CONF_SSH_KEY: "invalid_ssh_key"}, data)
+            return {CONF_SSH_KEY: "invalid_ssh_key"}
 
         verify = bool(data[CONF_BMC_VERIFY_SSL])
         redfish = RedfishClient(
@@ -288,12 +303,34 @@ class HomerunnerConfigFlow(ConfigFlow, domain=DOMAIN):
         try:
             await redfish.get_power_state()
         except BmcAuthError:
-            return self._show_server({"base": "invalid_auth_bmc"}, data)
+            return {"base": "invalid_auth_bmc"}
         except BmcError:
-            return self._show_server({"base": "cannot_connect_bmc"}, data)
+            return {"base": "cannot_connect_bmc"}
         except Exception:
             _LOGGER.exception("Unexpected error while checking the BMC")
-            return self._show_server({"base": "unknown"}, data)
+            return {"base": "unknown"}
+        return {}
+
+    async def _check_guard(self, data: Mapping[str, Any]) -> dict[str, str]:
+        try:
+            await self._guard_client(data).status()
+        except GuardConnectionError:
+            return {"base": "cannot_connect_guard"}
+        except GuardError:
+            return {"base": "guard_protocol_error"}
+        except Exception:
+            _LOGGER.exception("Unexpected error while checking the guard")
+            return {"base": "unknown"}
+        return {}
+
+    async def async_step_server(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is None:
+            return self._show_server({}, self._server or None)
+        data = self._normalize_server(user_input)
+        self._server = data
+
+        if errors := await self._check_server(data):
+            return self._show_server(errors, data)
 
         if CONF_SSH_KNOWN_HOST_KEY not in data:
             try:
@@ -304,7 +341,9 @@ class HomerunnerConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_host_key()
         return await self._check_guard_and_create()
 
-    async def async_step_host_key(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_host_key(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Show the fetched SSH host key; confirming pins it (trust on first use)."""
         if user_input is not None:
             return await self._check_guard_and_create()
@@ -318,21 +357,67 @@ class HomerunnerConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def _check_guard_and_create(self) -> ConfigFlowResult:
-        try:
-            await self._guard_client(self._server).status()
-        except GuardConnectionError:
-            return self._show_server({"base": "cannot_connect_guard"}, self._server)
-        except GuardError:
-            return self._show_server({"base": "guard_protocol_error"}, self._server)
-        except Exception:
-            _LOGGER.exception("Unexpected error while checking the guard")
-            return self._show_server({"base": "unknown"}, self._server)
+        if errors := await self._check_guard(self._server):
+            return self._show_server(errors, self._server)
         owner = self._github[CONF_OWNER]
         return self.async_create_entry(
             title=owner,
             data={**self._github, **self._server},
             options={CONF_AUTOMATIC: DEFAULT_AUTOMATIC, CONF_DRY_RUN: DEFAULT_DRY_RUN},
         )
+
+    # ---------------------------------------------------------------- reconfigure
+
+    def _show_reconfigure(
+        self, errors: dict[str, str], values: Mapping[str, Any] | None
+    ) -> ConfigFlowResult:
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(self._server_schema(), values),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change the server settings; validated like the setup step."""
+        entry = self._get_reconfigure_entry()
+        if user_input is None:
+            return self._show_reconfigure({}, entry.data)
+        data = self._normalize_server(user_input)
+        self._server = data
+        if errors := await self._check_server(data):
+            return self._show_reconfigure(errors, data)
+        if CONF_SSH_KNOWN_HOST_KEY not in data:
+            try:
+                data[CONF_SSH_KNOWN_HOST_KEY] = await self._guard_client(data).fetch_host_key()
+            except GuardError:
+                return self._show_reconfigure({"base": "cannot_connect_guard"}, data)
+            return await self.async_step_reconfigure_host_key()
+        return await self._check_guard_and_update()
+
+    async def async_step_reconfigure_host_key(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm a freshly fetched SSH host key before pinning it."""
+        if user_input is not None:
+            return await self._check_guard_and_update()
+        return self.async_show_form(
+            step_id="reconfigure_host_key",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "host": self._server[CONF_SSH_HOST],
+                "host_key": self._server[CONF_SSH_KNOWN_HOST_KEY],
+            },
+        )
+
+    async def _check_guard_and_update(self) -> ConfigFlowResult:
+        entry = self._get_reconfigure_entry()
+        if errors := await self._check_guard(self._server):
+            return self._show_reconfigure(errors, self._server)
+        # Optional keys the user cleared must disappear, so replace rather than merge.
+        keep = {k: v for k, v in entry.data.items() if k not in _SERVER_KEYS}
+        return self.async_update_reload_and_abort(entry, data={**keep, **self._server})
 
     # ---------------------------------------------------------------- reauth
 
@@ -387,9 +472,9 @@ class HomerunnerOptionsFlow(OptionsFlow):
         if user_input is not None:
             options = {**entry.options, **user_input}
             options[CONF_EXCLUDED_REPOS] = _clean_list(user_input.get(CONF_EXCLUDED_REPOS))
-            options[CONF_RUNNER_LABELS] = _clean_list(
-                user_input.get(CONF_RUNNER_LABELS)
-            ) or list(DEFAULT_RUNNER_LABELS)
+            options[CONF_RUNNER_LABELS] = _clean_list(user_input.get(CONF_RUNNER_LABELS)) or list(
+                DEFAULT_RUNNER_LABELS
+            )
             if options.get(CONF_USE_WEBHOOK) and not (
                 options.get(CONF_WEBHOOK_ID) and options.get(CONF_WEBHOOK_SECRET)
             ):
@@ -406,15 +491,41 @@ class HomerunnerOptionsFlow(OptionsFlow):
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_IDLE_HOURS, default=_o(CONF_IDLE_HOURS, DEFAULT_IDLE_HOURS)): _number(0.25, 24, 0.25),
-                vol.Required(CONF_SHORT_IDLE_MINUTES, default=_o(CONF_SHORT_IDLE_MINUTES, DEFAULT_SHORT_IDLE_MINUTES)): _number(5, 240),
-                vol.Required(CONF_MIN_UPTIME_MINUTES, default=_o(CONF_MIN_UPTIME_MINUTES, DEFAULT_MIN_UPTIME_MINUTES)): _number(0, 240),
-                vol.Required(CONF_MAX_STARTS_PER_DAY, default=_o(CONF_MAX_STARTS_PER_DAY, DEFAULT_MAX_STARTS_PER_DAY)): _number(1, 48),
-                vol.Required(CONF_FORCED_WAKE_DAYS, default=_o(CONF_FORCED_WAKE_DAYS, DEFAULT_FORCED_WAKE_DAYS)): _number(1, 13),
-                vol.Required(CONF_FORCED_WAKE_MINUTES, default=_o(CONF_FORCED_WAKE_MINUTES, DEFAULT_FORCED_WAKE_MINUTES)): _number(5, 240),
-                vol.Required(CONF_WAKE_TIMEOUT_MINUTES, default=_o(CONF_WAKE_TIMEOUT_MINUTES, DEFAULT_WAKE_TIMEOUT_MINUTES)): _number(1, 60),
-                vol.Required(CONF_SCHEDULE_GUARD_MINUTES, default=_o(CONF_SCHEDULE_GUARD_MINUTES, DEFAULT_SCHEDULE_GUARD_MINUTES)): _number(0, 240),
-                vol.Required(CONF_QUEUE_ALERT_MINUTES, default=_o(CONF_QUEUE_ALERT_MINUTES, DEFAULT_QUEUE_ALERT_MINUTES)): _number(1, 240),
+                vol.Required(
+                    CONF_IDLE_HOURS, default=_o(CONF_IDLE_HOURS, DEFAULT_IDLE_HOURS)
+                ): _number(0.25, 24, 0.25),
+                vol.Required(
+                    CONF_SHORT_IDLE_MINUTES,
+                    default=_o(CONF_SHORT_IDLE_MINUTES, DEFAULT_SHORT_IDLE_MINUTES),
+                ): _number(5, 240),
+                vol.Required(
+                    CONF_MIN_UPTIME_MINUTES,
+                    default=_o(CONF_MIN_UPTIME_MINUTES, DEFAULT_MIN_UPTIME_MINUTES),
+                ): _number(0, 240),
+                vol.Required(
+                    CONF_MAX_STARTS_PER_DAY,
+                    default=_o(CONF_MAX_STARTS_PER_DAY, DEFAULT_MAX_STARTS_PER_DAY),
+                ): _number(1, 48),
+                vol.Required(
+                    CONF_FORCED_WAKE_DAYS,
+                    default=_o(CONF_FORCED_WAKE_DAYS, DEFAULT_FORCED_WAKE_DAYS),
+                ): _number(1, 13),
+                vol.Required(
+                    CONF_FORCED_WAKE_MINUTES,
+                    default=_o(CONF_FORCED_WAKE_MINUTES, DEFAULT_FORCED_WAKE_MINUTES),
+                ): _number(5, 240),
+                vol.Required(
+                    CONF_WAKE_TIMEOUT_MINUTES,
+                    default=_o(CONF_WAKE_TIMEOUT_MINUTES, DEFAULT_WAKE_TIMEOUT_MINUTES),
+                ): _number(1, 60),
+                vol.Required(
+                    CONF_SCHEDULE_GUARD_MINUTES,
+                    default=_o(CONF_SCHEDULE_GUARD_MINUTES, DEFAULT_SCHEDULE_GUARD_MINUTES),
+                ): _number(0, 240),
+                vol.Required(
+                    CONF_QUEUE_ALERT_MINUTES,
+                    default=_o(CONF_QUEUE_ALERT_MINUTES, DEFAULT_QUEUE_ALERT_MINUTES),
+                ): _number(1, 240),
                 vol.Required(
                     CONF_EXCLUDED_REPOS,
                     default=list(get_conf(entry, CONF_EXCLUDED_REPOS, [])),
@@ -423,7 +534,9 @@ class HomerunnerOptionsFlow(OptionsFlow):
                     CONF_RUNNER_LABELS,
                     default=list(get_conf(entry, CONF_RUNNER_LABELS, DEFAULT_RUNNER_LABELS)),
                 ): _tags(),
-                vol.Required(CONF_USE_WEBHOOK, default=bool(_o(CONF_USE_WEBHOOK, False))): BooleanSelector(),
+                vol.Required(
+                    CONF_USE_WEBHOOK, default=bool(_o(CONF_USE_WEBHOOK, False))
+                ): BooleanSelector(),
             }
         )
         return self.async_show_form(
@@ -463,7 +576,9 @@ class ScheduleSubentryFlow(ConfigSubentryFlow):
                     TextSelectorConfig(multiline=True)
                 ),
                 vol.Required(CONF_TIME, default="03:00:00"): TimeSelector(),
-                vol.Required(CONF_WEEKDAYS, default=[str(d) for d in DEFAULT_WEEKDAYS]): SelectSelector(
+                vol.Required(
+                    CONF_WEEKDAYS, default=[str(d) for d in DEFAULT_WEEKDAYS]
+                ): SelectSelector(
                     SelectSelectorConfig(
                         options=[str(d) for d in range(7)],
                         multiple=True,
@@ -473,7 +588,9 @@ class ScheduleSubentryFlow(ConfigSubentryFlow):
                 ),
                 vol.Required(CONF_TIMEZONE, default=self.hass.config.time_zone): str,
                 vol.Required(CONF_PREWAKE, default=DEFAULT_PREWAKE): bool,
-                vol.Required(CONF_PREWAKE_MINUTES, default=DEFAULT_PREWAKE_MINUTES): _number(0, 240),
+                vol.Required(CONF_PREWAKE_MINUTES, default=DEFAULT_PREWAKE_MINUTES): _number(
+                    0, 240
+                ),
                 vol.Required(CONF_RETRIES, default=DEFAULT_RETRIES): _number(0, 10),
                 vol.Required(CONF_ENABLED, default=True): bool,
                 vol.Optional(CONF_DISPATCH_TOKEN): _password(),

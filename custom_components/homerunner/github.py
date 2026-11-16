@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
-from dataclasses import dataclass
-from datetime import UTC, datetime
 import json
 import logging
 import re
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote, urlencode
 
@@ -192,9 +191,7 @@ class GitHubClient:
                     reset_at = datetime.fromtimestamp(
                         datetime.now(UTC).timestamp() + retry_after, UTC
                     )
-                raise GitHubRateLimitError(
-                    message or "rate limited", status, reset_at
-                )
+                raise GitHubRateLimitError(message or "rate limited", status, reset_at)
             raise GitHubForbiddenError(message or "forbidden", status)
         if status == 404:
             raise GitHubNotFoundError(message or "not found", status)
@@ -225,9 +222,7 @@ class GitHubClient:
                 status = resp.status
                 resp_headers = resp.headers
         except (aiohttp.ClientError, TimeoutError) as err:
-            raise GitHubTransientError(
-                f"{method} request failed: {type(err).__name__}"
-            ) from err
+            raise GitHubTransientError(f"{method} request failed: {type(err).__name__}") from err
         self._update_rate_limit(resp_headers)
         return status, resp_headers, text
 
@@ -331,7 +326,9 @@ class GitHubClient:
         token: str | None = None,
     ) -> int | None:
         """Dispatch a workflow. Returns the run id when GitHub reports it."""
-        url = self._url(f"/repos/{repo}/actions/workflows/{quote(str(workflow), safe='')}/dispatches")
+        url = self._url(
+            f"/repos/{repo}/actions/workflows/{quote(str(workflow), safe='')}/dispatches"
+        )
         headers = self._headers(token)
         body: dict[str, Any] = {
             "ref": ref,
@@ -351,11 +348,7 @@ class GitHubClient:
                     return None
                 run_id = data.get("workflow_run_id") if isinstance(data, dict) else None
                 return int(run_id) if run_id is not None else None
-            if (
-                status == 422
-                and attempt == 1
-                and "return_run_details" in self._error_message(text)
-            ):
+            if status == 422 and attempt == 1 and "return_run_details" in self._error_message(text):
                 _LOGGER.debug("return_run_details not supported, retrying without it")
                 body = {k: v for k, v in body.items() if k != "return_run_details"}
                 continue

@@ -76,7 +76,9 @@ async def async_setup_entry(
 class ServerBinarySensor(HomerunnerEntity, BinarySensorEntity):
     entity_description: HomerunnerBinaryDescription
 
-    def __init__(self, entry: HomerunnerConfigEntry, description: HomerunnerBinaryDescription) -> None:
+    def __init__(
+        self, entry: HomerunnerConfigEntry, description: HomerunnerBinaryDescription
+    ) -> None:
         super().__init__(entry, description.key)
         self.entity_description = description
 

@@ -132,7 +132,9 @@ async def async_setup_entry(
 class ServerSensor(HomerunnerEntity, SensorEntity):
     entity_description: HomerunnerSensorDescription
 
-    def __init__(self, entry: HomerunnerConfigEntry, description: HomerunnerSensorDescription) -> None:
+    def __init__(
+        self, entry: HomerunnerConfigEntry, description: HomerunnerSensorDescription
+    ) -> None:
         super().__init__(entry, description.key)
         self.entity_description = description
 

@@ -1,0 +1,78 @@
+{
+  "entity": {
+    "sensor": {
+      "state": {
+        "default": "mdi:server",
+        "state": {
+          "off": "mdi:server-off",
+          "starting": "mdi:server-network",
+          "ready": "mdi:server",
+          "active": "mdi:server-security",
+          "shutting_down": "mdi:power-sleep",
+          "wake_failed": "mdi:server-network-off",
+          "unknown": "mdi:help-network"
+        }
+      },
+      "queued_jobs": { "default": "mdi:tray-full" },
+      "running_jobs": { "default": "mdi:play-circle-outline" },
+      "shutdown_at": { "default": "mdi:power-sleep" },
+      "power": { "default": "mdi:flash" },
+      "last_wake_reason": {
+        "default": "mdi:alarm",
+        "state": {
+          "queued_job": "mdi:tray-full",
+          "schedule": "mdi:calendar-clock",
+          "manual": "mdi:gesture-tap",
+          "forced_wake": "mdi:alarm-light"
+        }
+      },
+      "starts_today": { "default": "mdi:counter" },
+      "rate_limit_remaining": { "default": "mdi:gauge" },
+      "next_fire": { "default": "mdi:calendar-arrow-right" },
+      "last_dispatch": { "default": "mdi:calendar-check" },
+      "last_run": { "default": "mdi:history" }
+    },
+    "binary_sensor": {
+      "server_on": {
+        "default": "mdi:server-off",
+        "state": { "on": "mdi:server" }
+      },
+      "github_reachable": {
+        "default": "mdi:github",
+        "state": { "off": "mdi:cloud-off-outline" }
+      },
+      "problem": { "default": "mdi:check-circle-outline", "state": { "on": "mdi:alert-circle" } }
+    },
+    "switch": {
+      "automatic": {
+        "default": "mdi:robot-off-outline",
+        "state": { "on": "mdi:robot-outline" }
+      },
+      "dry_run": {
+        "default": "mdi:play-circle-outline",
+        "state": { "on": "mdi:test-tube" }
+      },
+      "enabled": {
+        "default": "mdi:calendar-remove",
+        "state": { "on": "mdi:calendar-check" }
+      }
+    },
+    "number": {
+      "idle_hours": { "default": "mdi:timer-sand" },
+      "short_idle_minutes": { "default": "mdi:timer-sand-paused" }
+    },
+    "button": {
+      "wake": { "default": "mdi:power" },
+      "safe_shutdown": { "default": "mdi:power-sleep" },
+      "keep_awake": { "default": "mdi:coffee" },
+      "force_off": { "default": "mdi:power-plug-off" },
+      "dispatch_now": { "default": "mdi:rocket-launch" }
+    }
+  },
+  "services": {
+    "wake": { "service": "mdi:power" },
+    "shutdown": { "service": "mdi:power-sleep" },
+    "keep_awake": { "service": "mdi:coffee" },
+    "dispatch": { "service": "mdi:rocket-launch" }
+  }
+}

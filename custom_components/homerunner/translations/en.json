@@ -51,6 +51,32 @@
         "data": {
           "github_token": "Access token"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure the server",
+        "description": "Connection to the server's BMC (Redfish) and to the guard script on the host (SSH). The settings are checked like during setup. If you leave the SSH host key empty, it is fetched again and you can confirm it on the next page.",
+        "data": {
+          "bmc_host": "BMC address",
+          "bmc_username": "BMC user",
+          "bmc_password": "BMC password",
+          "bmc_verify_ssl": "Verify the BMC certificate",
+          "wol_mac": "MAC address for Wake-on-LAN",
+          "ssh_host": "SSH host",
+          "ssh_port": "SSH port",
+          "ssh_username": "SSH user",
+          "ssh_private_key": "SSH private key",
+          "ssh_host_key": "SSH host key"
+        },
+        "data_description": {
+          "bmc_host": "Host name or IP address of the BMC.",
+          "wol_mac": "Optional second way to wake the server.",
+          "ssh_private_key": "Private key (PEM or OpenSSH format, without passphrase) of the guard user.",
+          "ssh_host_key": "Optional public host key line. Leave empty to pin the key on first use."
+        }
+      },
+      "reconfigure_host_key": {
+        "title": "Confirm the SSH host key",
+        "description": "{host} presented this host key. Confirm that it is the key of your server; it is pinned and checked on every connection.\n\n`{host_key}`"
       }
     },
     "error": {
@@ -68,7 +94,8 @@
     },
     "abort": {
       "already_configured": "This owner is already configured.",
-      "reauth_successful": "The token was updated."
+      "reauth_successful": "The token was updated.",
+      "reconfigure_successful": "The server settings were updated."
     }
   },
   "config_subentries": {

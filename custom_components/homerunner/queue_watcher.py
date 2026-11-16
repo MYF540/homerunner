@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-import logging
 
 from homeassistant.util.dt import utcnow
 
@@ -78,10 +78,7 @@ class QueueWatcher:
         self._jobs: dict[str, list[Job]] = {}
 
     def _excluded_repo(self, repo: Repo) -> bool:
-        return (
-            repo.name.lower() in self._excluded
-            or repo.full_name.lower() in self._excluded
-        )
+        return repo.name.lower() in self._excluded or repo.full_name.lower() in self._excluded
 
     async def _refresh_repos(self, now: datetime) -> None:
         if (
@@ -122,9 +119,8 @@ class QueueWatcher:
         for run_id in run_ids:
             for job in await self._client.list_run_jobs(repo.full_name, run_id):
                 status = job.status.lower()
-                if (
-                    status in QUEUED_STATUSES | RUNNING_STATUSES
-                    and job_matches(job.labels, self._labels)
+                if status in QUEUED_STATUSES | RUNNING_STATUSES and job_matches(
+                    job.labels, self._labels
                 ):
                     found[job.id] = job
         return list(found.values())

@@ -297,7 +297,9 @@ def test_build_magic_packet(mac):
     assert packet[6:] == bytes.fromhex("aabbccddeeff") * 16
 
 
-@pytest.mark.parametrize("mac", ["", "aa:bb:cc:dd:ee", "gg:bb:cc:dd:ee:ff", "aabbccddeef", "aa:bb:cc:dd:ee:ff:00"])
+@pytest.mark.parametrize(
+    "mac", ["", "aa:bb:cc:dd:ee", "gg:bb:cc:dd:ee:ff", "aabbccddeef", "aa:bb:cc:dd:ee:ff:00"]
+)
 def test_build_magic_packet_invalid(mac):
     with pytest.raises(ValueError):
         build_magic_packet(mac)

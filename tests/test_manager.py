@@ -166,7 +166,8 @@ async def test_services_wake_keep_awake_shutdown(hass, mock_entry, mocks) -> Non
 async def test_entities_change_rules_immediately(hass, mock_entry, mocks) -> None:
     manager = await _setup(hass, mock_entry)
     await hass.services.async_call(
-        "number", "set_value",
+        "number",
+        "set_value",
         {"entity_id": "number.runner_server_octo_org_idle_time", "value": 3.5},
         blocking=True,
     )

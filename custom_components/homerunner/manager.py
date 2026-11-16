@@ -181,9 +181,7 @@ class HomerunnerManager:
         self.runner.resume_run_fetches()
         self._unsubs.append(self.queue.async_add_listener(self._on_coordinator))
         self._unsubs.append(self.server.async_add_listener(self._on_coordinator))
-        self._unsubs.append(
-            async_track_time_interval(self.hass, self._on_interval, STEP_INTERVAL)
-        )
+        self._unsubs.append(async_track_time_interval(self.hass, self._on_interval, STEP_INTERVAL))
         await self.async_step()
 
     async def async_stop(self) -> None:
@@ -218,9 +216,7 @@ class HomerunnerManager:
 
     @callback
     def _on_coordinator(self) -> None:
-        self.entry.async_create_background_task(
-            self.hass, self.async_step(), name=f"{DOMAIN} step"
-        )
+        self.entry.async_create_background_task(self.hass, self.async_step(), name=f"{DOMAIN} step")
 
     @callback
     def _on_interval(self, _now: datetime) -> None:
@@ -340,9 +336,7 @@ class HomerunnerManager:
             _LOGGER.warning("Guard shutdown failed: %s", err)
             self.last_error = str(err)
             return self.machine.on_shutdown_result(dt_util.utcnow(), False, "error")
-        return self.machine.on_shutdown_result(
-            dt_util.utcnow(), result.accepted, result.reason
-        )
+        return self.machine.on_shutdown_result(dt_util.utcnow(), result.accepted, result.reason)
 
     def _do_notify(self, action: Action) -> None:
         language = "de" if (self.hass.config.language or "").startswith("de") else "en"

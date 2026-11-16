@@ -38,7 +38,9 @@ async def async_setup_entry(
 
 
 class ServerButton(HomerunnerEntity, ButtonEntity):
-    def __init__(self, entry: HomerunnerConfigEntry, key: str, enabled_default: bool = True) -> None:
+    def __init__(
+        self, entry: HomerunnerConfigEntry, key: str, enabled_default: bool = True
+    ) -> None:
         super().__init__(entry, key)
         self._attr_entity_registry_enabled_default = enabled_default
 

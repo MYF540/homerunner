@@ -64,9 +64,7 @@ async def async_register_webhook(hass: HomeAssistant, entry: ConfigEntry) -> str
     await async_setup_component(hass, "webhook", {})
     labels = list(get_conf(entry, CONF_RUNNER_LABELS, DEFAULT_RUNNER_LABELS))
 
-    async def _handle(
-        hass: HomeAssistant, webhook_id: str, request: web.Request
-    ) -> web.Response:
+    async def _handle(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
         body = await request.read()
         if not verify_signature(secret, body, request.headers.get(SIGNATURE_HEADER)):
             _LOGGER.warning("Rejected webhook call with an invalid signature")
@@ -82,9 +80,7 @@ async def async_register_webhook(hass: HomeAssistant, entry: ConfigEntry) -> str
         except (ValueError, KeyError, TypeError, AttributeError):
             return web.Response(status=400)
         if job_matches(job_labels, labels):
-            hass.async_create_task(
-                entry.runtime_data.queue.async_request_refresh()
-            )
+            hass.async_create_task(entry.runtime_data.queue.async_request_refresh())
         return web.Response(status=200)
 
     webhook.async_register(

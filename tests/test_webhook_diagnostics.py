@@ -54,32 +54,50 @@ async def test_webhook_triggers_refresh_for_matching_jobs(
         return json.dumps({"action": "queued", "workflow_job": {"labels": labels}}).encode()
 
     body = payload(["self-hosted"])
-    resp = await client.post(url, data=body, headers={"X-GitHub-Event": "workflow_job", "X-Hub-Signature-256": _sign(body)})
+    resp = await client.post(
+        url,
+        data=body,
+        headers={"X-GitHub-Event": "workflow_job", "X-Hub-Signature-256": _sign(body)},
+    )
     assert resp.status == 200
     await hass.async_block_till_done()
     queue.async_request_refresh.assert_awaited_once()
 
     # a bad signature is rejected and does nothing
     queue.async_request_refresh.reset_mock()
-    resp = await client.post(url, data=body, headers={"X-GitHub-Event": "workflow_job", "X-Hub-Signature-256": _sign(body, "wrong")})
+    resp = await client.post(
+        url,
+        data=body,
+        headers={"X-GitHub-Event": "workflow_job", "X-Hub-Signature-256": _sign(body, "wrong")},
+    )
     assert resp.status == 401
     resp = await client.post(url, data=body, headers={"X-GitHub-Event": "workflow_job"})
     assert resp.status == 401
 
     # a job for other runners is ignored
     other = payload(["ubuntu-latest"])
-    resp = await client.post(url, data=other, headers={"X-GitHub-Event": "workflow_job", "X-Hub-Signature-256": _sign(other)})
+    resp = await client.post(
+        url,
+        data=other,
+        headers={"X-GitHub-Event": "workflow_job", "X-Hub-Signature-256": _sign(other)},
+    )
     assert resp.status == 200
     # ping and unrelated events are acknowledged
     ping = b"{}"
-    resp = await client.post(url, data=ping, headers={"X-GitHub-Event": "ping", "X-Hub-Signature-256": _sign(ping)})
+    resp = await client.post(
+        url, data=ping, headers={"X-GitHub-Event": "ping", "X-Hub-Signature-256": _sign(ping)}
+    )
     assert resp.status == 200
     await hass.async_block_till_done()
     queue.async_request_refresh.assert_not_awaited()
 
     # unloading removes the webhook
     await hass.config_entries.async_unload(mock_entry.entry_id)
-    resp = await client.post(url, data=body, headers={"X-GitHub-Event": "workflow_job", "X-Hub-Signature-256": _sign(body)})
+    resp = await client.post(
+        url,
+        data=body,
+        headers={"X-GitHub-Event": "workflow_job", "X-Hub-Signature-256": _sign(body)},
+    )
     assert resp.status == 200  # unknown ids answer 200 by design of HA
     queue.async_request_refresh.assert_not_awaited()
 
@@ -95,8 +113,12 @@ async def test_diagnostics_redacts_secrets(hass, mocks, entry_options) -> None:
         subentries_data=[
             ConfigSubentryData(
                 data={
-                    "name": "n", "repository": "o/r", "workflow": "w.yml", "ref": "main",
-                    "time": "03:00:00", "dispatch_token": "ghp_dispatch_secret",
+                    "name": "n",
+                    "repository": "o/r",
+                    "workflow": "w.yml",
+                    "ref": "main",
+                    "time": "03:00:00",
+                    "dispatch_token": "ghp_dispatch_secret",
                 },
                 subentry_type=SUBENTRY_SCHEDULE,
                 title="n",
@@ -110,8 +132,14 @@ async def test_diagnostics_redacts_secrets(hass, mocks, entry_options) -> None:
     diag = await async_get_config_entry_diagnostics(hass, entry)
     text = json.dumps(diag, default=str)
     for secret in (
-        "ghp_secret_token", "bmc_secret_pw", "BEGIN OPENSSH PRIVATE KEY", "ghp_dispatch_secret",
-        SECRET, HOOK_ID, "bmc.example", "runner.example",
+        "ghp_secret_token",
+        "bmc_secret_pw",
+        "BEGIN OPENSSH PRIVATE KEY",
+        "ghp_dispatch_secret",
+        SECRET,
+        HOOK_ID,
+        "bmc.example",
+        "runner.example",
     ):
         assert secret not in text
     assert diag["entry"]["data"]["github_token"] == "**REDACTED**"

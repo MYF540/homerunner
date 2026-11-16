@@ -319,7 +319,6 @@ class PowerStateMachine:
 
     def step(self, obs: Observation) -> list[Action]:
         """Advance the machine with a fresh observation."""
-        now = obs.now
         self._roll_day(obs.local_date)
         power = self._power(obs)
         runners_ready = (power == PowerState.ON) if self.rules.dry_run else obs.runners_ready

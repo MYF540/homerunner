@@ -1,0 +1,422 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GitHub-Zugang",
+        "description": "Homerunner beobachtet alle Repositories einer Organisation oder eines Benutzers auf Jobs, die auf Ihre eigenen Runner warten. Das Token braucht Lesezugriff auf Actions (und Schreibzugriff, wenn Workflows damit ausgelöst werden sollen).",
+        "data": {
+          "github_token": "Zugriffstoken",
+          "api_base": "API-Basisadresse",
+          "owner": "Organisation oder Benutzer",
+          "excluded_repos": "Ausgeschlossene Repositories",
+          "runner_labels": "Runner-Labels"
+        },
+        "data_description": {
+          "github_token": "Ein Fine-grained Personal Access Token.",
+          "api_base": "Nur für GitHub Enterprise Server ändern.",
+          "owner": "Eigentümer, dessen Repositories beobachtet werden.",
+          "excluded_repos": "Repository-Namen (ohne Eigentümer), die ignoriert werden.",
+          "runner_labels": "Ein Job zählt, wenn alle seine Labels in dieser Liste stehen."
+        }
+      },
+      "server": {
+        "title": "Runner-Server",
+        "description": "Verbindung zum BMC des Servers (Redfish) und zum Wächter-Skript auf dem Host (SSH). Bleibt der SSH-Host-Schlüssel leer, wird er abgerufen und Sie bestätigen ihn auf der nächsten Seite.",
+        "data": {
+          "bmc_host": "BMC-Adresse",
+          "bmc_username": "BMC-Benutzer",
+          "bmc_password": "BMC-Passwort",
+          "bmc_verify_ssl": "BMC-Zertifikat prüfen",
+          "wol_mac": "MAC-Adresse für Wake-on-LAN",
+          "ssh_host": "SSH-Host",
+          "ssh_port": "SSH-Port",
+          "ssh_username": "SSH-Benutzer",
+          "ssh_private_key": "Privater SSH-Schlüssel",
+          "ssh_host_key": "SSH-Host-Schlüssel"
+        },
+        "data_description": {
+          "bmc_host": "Hostname oder IP-Adresse des BMC.",
+          "wol_mac": "Optionaler zweiter Weg, den Server zu wecken.",
+          "ssh_private_key": "Privater Schlüssel (PEM oder OpenSSH, ohne Passphrase) des Wächter-Benutzers.",
+          "ssh_host_key": "Optional: öffentliche Host-Schlüssel-Zeile. Leer lassen, um den Schlüssel beim ersten Mal zu übernehmen."
+        }
+      },
+      "host_key": {
+        "title": "SSH-Host-Schlüssel bestätigen",
+        "description": "{host} hat diesen Host-Schlüssel vorgezeigt. Bestätigen Sie, dass es der Schlüssel Ihres Servers ist; er wird fest hinterlegt und bei jeder Verbindung geprüft.\n\n`{host_key}`"
+      },
+      "reauth_confirm": {
+        "title": "GitHub-Token erneuern",
+        "description": "Das Token für {owner} wurde abgelehnt. Geben Sie ein neues ein.",
+        "data": {
+          "github_token": "Zugriffstoken"
+        }
+      },
+      "reconfigure": {
+        "title": "Server-Einstellungen ändern",
+        "description": "Verbindung zum BMC (Redfish) und zum Wächter-Skript auf dem Host (SSH). Die Angaben werden wie bei der Einrichtung geprüft. Bleibt der SSH-Host-Schlüssel leer, wird er neu abgerufen und kann auf der nächsten Seite bestätigt werden.",
+        "data": {
+          "bmc_host": "BMC-Adresse",
+          "bmc_username": "BMC-Benutzer",
+          "bmc_password": "BMC-Passwort",
+          "bmc_verify_ssl": "BMC-Zertifikat prüfen",
+          "wol_mac": "MAC-Adresse für Wake-on-LAN",
+          "ssh_host": "SSH-Host",
+          "ssh_port": "SSH-Port",
+          "ssh_username": "SSH-Benutzer",
+          "ssh_private_key": "Privater SSH-Schlüssel",
+          "ssh_host_key": "SSH-Host-Schlüssel"
+        },
+        "data_description": {
+          "bmc_host": "Hostname oder IP-Adresse des BMC.",
+          "wol_mac": "Optionaler zweiter Weg, den Server zu wecken.",
+          "ssh_private_key": "Privater Schlüssel (PEM oder OpenSSH, ohne Passphrase) des Wächter-Benutzers.",
+          "ssh_host_key": "Optional: öffentliche Host-Schlüssel-Zeile. Leer lassen, um den Schlüssel beim ersten Mal zu übernehmen."
+        }
+      },
+      "reconfigure_host_key": {
+        "title": "SSH-Host-Schlüssel bestätigen",
+        "description": "{host} hat diesen Host-Schlüssel vorgezeigt. Bestätigen Sie, dass es der Schlüssel Ihres Servers ist; er wird fest hinterlegt und bei jeder Verbindung geprüft.\n\n`{host_key}`"
+      }
+    },
+    "error": {
+      "invalid_auth": "Das Token wurde abgelehnt.",
+      "forbidden": "Dem Token fehlen Rechte oder das Anfragelimit ist erschöpft.",
+      "owner_not_found": "Diese Organisation oder dieser Benutzer existiert nicht oder ist für das Token nicht sichtbar.",
+      "cannot_connect": "Verbindung zu GitHub nicht möglich.",
+      "unknown": "Unerwarteter Fehler. Details stehen im Protokoll.",
+      "invalid_mac": "Keine gültige MAC-Adresse.",
+      "invalid_ssh_key": "Der private SSH-Schlüssel ist nicht lesbar (Schlüssel mit Passphrase werden nicht unterstützt).",
+      "invalid_auth_bmc": "Der BMC hat Benutzername oder Passwort abgelehnt.",
+      "cannot_connect_bmc": "Der BMC ist nicht erreichbar oder spricht kein Redfish.",
+      "cannot_connect_guard": "Keine SSH-Verbindung zum Wächter. Prüfen Sie Host, Schlüssel und ob das Wächter-Skript installiert ist.",
+      "guard_protocol_error": "Der SSH-Befehl antwortet, aber nicht wie das Wächter-Skript."
+    },
+    "abort": {
+      "already_configured": "Dieser Eigentümer ist bereits eingerichtet.",
+      "reauth_successful": "Das Token wurde aktualisiert.",
+      "reconfigure_successful": "Die Server-Einstellungen wurden aktualisiert."
+    }
+  },
+  "config_subentries": {
+    "schedule": {
+      "initiate_flow": {
+        "user": "Zeitplan hinzufügen",
+        "reconfigure": "Zeitplan ändern"
+      },
+      "entry_type": "Zeitplan",
+      "step": {
+        "user": {
+          "title": "Zeitplan hinzufügen",
+          "description": "Löst einen Workflow zu festen Zeiten aus und weckt den Server vorher.",
+          "data": {
+            "name": "Name",
+            "repository": "Repository",
+            "workflow": "Workflow",
+            "ref": "Branch oder Tag",
+            "inputs": "Eingaben (JSON)",
+            "time": "Uhrzeit",
+            "weekdays": "Wochentage",
+            "timezone": "Zeitzone",
+            "prewake": "Server vorher wecken",
+            "prewake_minutes": "Vorlauf (Minuten)",
+            "retries": "Wiederholungen",
+            "enabled": "Aktiv",
+            "dispatch_token": "Auslöse-Token"
+          },
+          "data_description": {
+            "repository": "Im Format Eigentümer/Name.",
+            "workflow": "Dateiname (z. B. nachtlauf.yml) oder Workflow-ID.",
+            "inputs": "Ein JSON-Objekt mit den Workflow-Eingaben oder leer.",
+            "dispatch_token": "Optional. Standard ist das Zugriffstoken der Integration."
+          }
+        },
+        "reconfigure": {
+          "title": "Zeitplan ändern",
+          "description": "Löst einen Workflow zu festen Zeiten aus und weckt den Server vorher.",
+          "data": {
+            "name": "Name",
+            "repository": "Repository",
+            "workflow": "Workflow",
+            "ref": "Branch oder Tag",
+            "inputs": "Eingaben (JSON)",
+            "time": "Uhrzeit",
+            "weekdays": "Wochentage",
+            "timezone": "Zeitzone",
+            "prewake": "Server vorher wecken",
+            "prewake_minutes": "Vorlauf (Minuten)",
+            "retries": "Wiederholungen",
+            "enabled": "Aktiv",
+            "dispatch_token": "Auslöse-Token"
+          },
+          "data_description": {
+            "repository": "Im Format Eigentümer/Name.",
+            "workflow": "Dateiname (z. B. nachtlauf.yml) oder Workflow-ID.",
+            "inputs": "Ein JSON-Objekt mit den Workflow-Eingaben oder leer.",
+            "dispatch_token": "Optional. Standard ist das Zugriffstoken der Integration."
+          }
+        }
+      },
+      "error": {
+        "invalid_repository": "Bitte im Format Eigentümer/Name angeben.",
+        "invalid_inputs": "Die Eingaben müssen ein gültiges JSON-Objekt sein.",
+        "invalid_timezone": "Unbekannte Zeitzone.",
+        "no_weekdays": "Wählen Sie mindestens einen Wochentag."
+      },
+      "abort": {
+        "reconfigure_successful": "Der Zeitplan wurde aktualisiert."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Regeln und Filter",
+        "description": "Die Leerlauffristen lassen sich auch über die Zahlen-Entitäten ändern. Ist der Webhook aktiv, muss GitHub workflow_job-Ereignisse an `{webhook_url}` mit dem Geheimnis `{webhook_secret}` senden.",
+        "data": {
+          "idle_hours": "Leerlauffrist nach Arbeit (Stunden)",
+          "short_idle_minutes": "Kurze Leerlauffrist (Minuten)",
+          "min_uptime_minutes": "Mindestlaufzeit (Minuten)",
+          "max_starts_per_day": "Höchstzahl Starts pro Tag",
+          "forced_wake_days": "Pflicht-Wecken nach (Tagen aus)",
+          "forced_wake_minutes": "Dauer des Pflicht-Weckens (Minuten)",
+          "wake_timeout_minutes": "Zeitlimit beim Wecken (Minuten)",
+          "schedule_guard_minutes": "Nicht ausschalten vor einem Zeitplan (Minuten)",
+          "queue_alert_minutes": "Warnung bei wartenden Jobs nach (Minuten)",
+          "excluded_repos": "Ausgeschlossene Repositories",
+          "runner_labels": "Runner-Labels",
+          "use_webhook": "workflow_job-Webhook verwenden"
+        },
+        "data_description": {
+          "use_webhook": "Optionaler Beschleuniger. Das Abfragen bleibt als Sicherheitsnetz aktiv."
+        }
+      },
+      "webhook_info": {
+        "title": "GitHub-Webhook",
+        "description": "Legen Sie bei GitHub (Einstellungen der Organisation oder des Repositories) einen Webhook für das Ereignis „Workflow jobs“ an, Inhaltstyp application/json.\n\nPayload-URL: `{webhook_url}`\n\nGeheimnis: `{webhook_secret}`"
+      }
+    }
+  },
+  "device": {
+    "server": {
+      "name": "Runner-Server ({owner})"
+    },
+    "schedule": {
+      "name": "Zeitplan {name}"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Zustand",
+        "state": {
+          "off": "Aus",
+          "starting": "Startet",
+          "ready": "Bereit",
+          "active": "Aktiv",
+          "shutting_down": "Fährt herunter",
+          "wake_failed": "Weckfehler",
+          "unknown": "Unbekannt"
+        }
+      },
+      "queued_jobs": {
+        "name": "Wartende Jobs"
+      },
+      "running_jobs": {
+        "name": "Laufende Jobs"
+      },
+      "shutdown_at": {
+        "name": "Herunterfahren um"
+      },
+      "power": {
+        "name": "Leistung"
+      },
+      "last_wake_reason": {
+        "name": "Letzter Weckgrund",
+        "state": {
+          "queued_job": "Wartender Job",
+          "schedule": "Zeitplan",
+          "manual": "Von Hand",
+          "forced_wake": "Pflicht-Wecken"
+        }
+      },
+      "starts_today": {
+        "name": "Starts heute"
+      },
+      "rate_limit_remaining": {
+        "name": "Verbleibendes API-Limit"
+      },
+      "next_fire": {
+        "name": "Nächste Auslösung"
+      },
+      "last_dispatch": {
+        "name": "Letzte Auslösung"
+      },
+      "last_run": {
+        "name": "Letzter Lauf"
+      }
+    },
+    "binary_sensor": {
+      "server_on": {
+        "name": "Server an"
+      },
+      "github_reachable": {
+        "name": "GitHub erreichbar"
+      },
+      "problem": {
+        "name": "Problem"
+      }
+    },
+    "switch": {
+      "automatic": {
+        "name": "Automatik"
+      },
+      "auto_shutdown": {
+        "name": "Automatisches Herunterfahren"
+      },
+      "dry_run": {
+        "name": "Trockenlauf"
+      },
+      "enabled": {
+        "name": "Aktiv"
+      }
+    },
+    "number": {
+      "idle_hours": {
+        "name": "Leerlauffrist"
+      },
+      "short_idle_minutes": {
+        "name": "Kurze Leerlauffrist"
+      }
+    },
+    "button": {
+      "wake": {
+        "name": "Wecken"
+      },
+      "safe_shutdown": {
+        "name": "Sicher herunterfahren"
+      },
+      "keep_awake": {
+        "name": "2 Stunden wach halten"
+      },
+      "force_off": {
+        "name": "Ausschalten erzwingen"
+      },
+      "dispatch_now": {
+        "name": "Jetzt auslösen"
+      }
+    }
+  },
+  "services": {
+    "wake": {
+      "name": "Server wecken",
+      "description": "Schaltet den Server ein, unabhängig vom Schalter „Automatik“.",
+      "fields": {
+        "config_entry": {
+          "name": "Konfigurationseintrag",
+          "description": "Nur nötig, wenn mehrere Server eingerichtet sind."
+        }
+      }
+    },
+    "shutdown": {
+      "name": "Server herunterfahren",
+      "description": "Fährt den Server über das Wächter-Skript herunter; es lehnt ab, solange ein Job läuft.",
+      "fields": {
+        "force": {
+          "name": "Erzwingen",
+          "description": "Schaltet den Server über den BMC aus, ohne den Wächter zu fragen. Laufende Jobs gehen verloren."
+        },
+        "config_entry": {
+          "name": "Konfigurationseintrag",
+          "description": "Nur nötig, wenn mehrere Server eingerichtet sind."
+        }
+      }
+    },
+    "keep_awake": {
+      "name": "Server wach halten",
+      "description": "Verhindert für eine Weile das automatische Herunterfahren.",
+      "fields": {
+        "duration": {
+          "name": "Dauer",
+          "description": "Wie lange der Server an bleibt."
+        },
+        "config_entry": {
+          "name": "Konfigurationseintrag",
+          "description": "Nur nötig, wenn mehrere Server eingerichtet sind."
+        }
+      }
+    },
+    "dispatch": {
+      "name": "Workflow auslösen",
+      "description": "Löst einen Workflow aus, entweder von einem Zeitplan oder von einem beliebigen Repository.",
+      "fields": {
+        "schedule": {
+          "name": "Zeitplan",
+          "description": "Eine Zeitplan-Entität oder die ID eines Zeitplans."
+        },
+        "repository": {
+          "name": "Repository",
+          "description": "Eigentümer/Name, falls kein Zeitplan angegeben ist."
+        },
+        "workflow": {
+          "name": "Workflow",
+          "description": "Dateiname oder ID, falls kein Zeitplan angegeben ist."
+        },
+        "ref": {
+          "name": "Branch oder Tag",
+          "description": "Überschreibt die Referenz des Zeitplans."
+        },
+        "inputs": {
+          "name": "Eingaben",
+          "description": "Überschreibt die Eingaben des Zeitplans."
+        },
+        "config_entry": {
+          "name": "Konfigurationseintrag",
+          "description": "Nur nötig, wenn mehrere Server eingerichtet sind."
+        }
+      }
+    }
+  },
+  "issues": {
+    "token_invalid": {
+      "title": "GitHub-Token abgelehnt",
+      "description": "Das Auslösen von {repository} für den Zeitplan {schedule} ist gescheitert, weil GitHub das Token abgelehnt hat. Erneuern Sie das Token in der Integration oder in den Einstellungen des Zeitplans."
+    }
+  },
+  "exceptions": {
+    "entry_not_found": {
+      "message": "Kein geladener Homerunner-Eintrag passt."
+    },
+    "no_entry": {
+      "message": "Homerunner ist nicht eingerichtet."
+    },
+    "multiple_entries": {
+      "message": "Es gibt mehrere Homerunner-Einträge; wählen Sie einen mit config_entry."
+    },
+    "unknown_schedule": {
+      "message": "Unbekannter Zeitplan {schedule}."
+    },
+    "invalid_inputs": {
+      "message": "Die Eingaben müssen ein JSON-Objekt sein."
+    },
+    "dispatch_target_missing": {
+      "message": "Geben Sie entweder einen Zeitplan oder Repository und Workflow an."
+    },
+    "force_off_failed": {
+      "message": "Das Ausschalten des Servers ist fehlgeschlagen: {error}"
+    }
+  },
+  "selector": {
+    "weekdays": {
+      "options": {
+        "0": "Montag",
+        "1": "Dienstag",
+        "2": "Mittwoch",
+        "3": "Donnerstag",
+        "4": "Freitag",
+        "5": "Samstag",
+        "6": "Sonntag"
+      }
+    }
+  }
+}

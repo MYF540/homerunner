@@ -1,0 +1,422 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GitHub access",
+        "description": "Homerunner watches all repositories of an organisation or user for jobs waiting on your self-hosted runners. The token needs read access to Actions (and read and write if you want to dispatch workflows with it).",
+        "data": {
+          "github_token": "Access token",
+          "api_base": "API base URL",
+          "owner": "Organisation or user",
+          "excluded_repos": "Excluded repositories",
+          "runner_labels": "Runner labels"
+        },
+        "data_description": {
+          "github_token": "A fine-grained personal access token.",
+          "api_base": "Only change this for GitHub Enterprise Server.",
+          "owner": "Owner whose repositories are watched.",
+          "excluded_repos": "Repository names (without owner) that are ignored.",
+          "runner_labels": "A job counts if all of its labels are in this list."
+        }
+      },
+      "server": {
+        "title": "Runner server",
+        "description": "Connection to the server's BMC (Redfish) and to the guard script on the host (SSH). If you leave the SSH host key empty, it is fetched and you can confirm it on the next page.",
+        "data": {
+          "bmc_host": "BMC address",
+          "bmc_username": "BMC user",
+          "bmc_password": "BMC password",
+          "bmc_verify_ssl": "Verify the BMC certificate",
+          "wol_mac": "MAC address for Wake-on-LAN",
+          "ssh_host": "SSH host",
+          "ssh_port": "SSH port",
+          "ssh_username": "SSH user",
+          "ssh_private_key": "SSH private key",
+          "ssh_host_key": "SSH host key"
+        },
+        "data_description": {
+          "bmc_host": "Host name or IP address of the BMC.",
+          "wol_mac": "Optional second way to wake the server.",
+          "ssh_private_key": "Private key (PEM or OpenSSH format, without passphrase) of the guard user.",
+          "ssh_host_key": "Optional public host key line. Leave empty to pin the key on first use."
+        }
+      },
+      "host_key": {
+        "title": "Confirm the SSH host key",
+        "description": "{host} presented this host key. Confirm that it is the key of your server; it is pinned and checked on every connection.\n\n`{host_key}`"
+      },
+      "reauth_confirm": {
+        "title": "Renew the GitHub token",
+        "description": "The token for {owner} was rejected. Enter a new one.",
+        "data": {
+          "github_token": "Access token"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure the server",
+        "description": "Connection to the server's BMC (Redfish) and to the guard script on the host (SSH). The settings are checked like during setup. If you leave the SSH host key empty, it is fetched again and you can confirm it on the next page.",
+        "data": {
+          "bmc_host": "BMC address",
+          "bmc_username": "BMC user",
+          "bmc_password": "BMC password",
+          "bmc_verify_ssl": "Verify the BMC certificate",
+          "wol_mac": "MAC address for Wake-on-LAN",
+          "ssh_host": "SSH host",
+          "ssh_port": "SSH port",
+          "ssh_username": "SSH user",
+          "ssh_private_key": "SSH private key",
+          "ssh_host_key": "SSH host key"
+        },
+        "data_description": {
+          "bmc_host": "Host name or IP address of the BMC.",
+          "wol_mac": "Optional second way to wake the server.",
+          "ssh_private_key": "Private key (PEM or OpenSSH format, without passphrase) of the guard user.",
+          "ssh_host_key": "Optional public host key line. Leave empty to pin the key on first use."
+        }
+      },
+      "reconfigure_host_key": {
+        "title": "Confirm the SSH host key",
+        "description": "{host} presented this host key. Confirm that it is the key of your server; it is pinned and checked on every connection.\n\n`{host_key}`"
+      }
+    },
+    "error": {
+      "invalid_auth": "The token was rejected.",
+      "forbidden": "The token lacks the required permissions or the rate limit is exhausted.",
+      "owner_not_found": "This organisation or user does not exist or is not visible to the token.",
+      "cannot_connect": "Cannot connect to GitHub.",
+      "unknown": "Unexpected error. See the log for details.",
+      "invalid_mac": "Not a valid MAC address.",
+      "invalid_ssh_key": "The SSH private key cannot be read (a key with passphrase is not supported).",
+      "invalid_auth_bmc": "The BMC rejected the user name or password.",
+      "cannot_connect_bmc": "Cannot reach the BMC or it does not speak Redfish.",
+      "cannot_connect_guard": "Cannot connect to the guard over SSH. Check host, key and that the guard script is installed.",
+      "guard_protocol_error": "The SSH command answered, but not like the guard script."
+    },
+    "abort": {
+      "already_configured": "This owner is already configured.",
+      "reauth_successful": "The token was updated.",
+      "reconfigure_successful": "The server settings were updated."
+    }
+  },
+  "config_subentries": {
+    "schedule": {
+      "initiate_flow": {
+        "user": "Add schedule",
+        "reconfigure": "Reconfigure schedule"
+      },
+      "entry_type": "Schedule",
+      "step": {
+        "user": {
+          "title": "Add schedule",
+          "description": "Dispatch a workflow at fixed times and wake the server beforehand.",
+          "data": {
+            "name": "Name",
+            "repository": "Repository",
+            "workflow": "Workflow",
+            "ref": "Branch or tag",
+            "inputs": "Inputs (JSON)",
+            "time": "Time",
+            "weekdays": "Weekdays",
+            "timezone": "Time zone",
+            "prewake": "Wake the server beforehand",
+            "prewake_minutes": "Lead time (minutes)",
+            "retries": "Retries",
+            "enabled": "Enabled",
+            "dispatch_token": "Dispatch token"
+          },
+          "data_description": {
+            "repository": "In the form owner/name.",
+            "workflow": "File name (for example nightly.yml) or workflow id.",
+            "inputs": "A JSON object with the workflow inputs, or empty.",
+            "dispatch_token": "Optional. Defaults to the access token of the integration."
+          }
+        },
+        "reconfigure": {
+          "title": "Reconfigure schedule",
+          "description": "Dispatch a workflow at fixed times and wake the server beforehand.",
+          "data": {
+            "name": "Name",
+            "repository": "Repository",
+            "workflow": "Workflow",
+            "ref": "Branch or tag",
+            "inputs": "Inputs (JSON)",
+            "time": "Time",
+            "weekdays": "Weekdays",
+            "timezone": "Time zone",
+            "prewake": "Wake the server beforehand",
+            "prewake_minutes": "Lead time (minutes)",
+            "retries": "Retries",
+            "enabled": "Enabled",
+            "dispatch_token": "Dispatch token"
+          },
+          "data_description": {
+            "repository": "In the form owner/name.",
+            "workflow": "File name (for example nightly.yml) or workflow id.",
+            "inputs": "A JSON object with the workflow inputs, or empty.",
+            "dispatch_token": "Optional. Defaults to the access token of the integration."
+          }
+        }
+      },
+      "error": {
+        "invalid_repository": "Use the form owner/name.",
+        "invalid_inputs": "The inputs must be a valid JSON object.",
+        "invalid_timezone": "Unknown time zone.",
+        "no_weekdays": "Select at least one weekday."
+      },
+      "abort": {
+        "reconfigure_successful": "The schedule was updated."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Rules and filters",
+        "description": "The idle timers can also be changed with the number entities. If the webhook is enabled, GitHub must send workflow_job events to `{webhook_url}` with the secret `{webhook_secret}`.",
+        "data": {
+          "idle_hours": "Idle time after work (hours)",
+          "short_idle_minutes": "Short idle time (minutes)",
+          "min_uptime_minutes": "Minimum uptime (minutes)",
+          "max_starts_per_day": "Maximum starts per day",
+          "forced_wake_days": "Forced wake after (days off)",
+          "forced_wake_minutes": "Forced wake duration (minutes)",
+          "wake_timeout_minutes": "Wake timeout (minutes)",
+          "schedule_guard_minutes": "No shutdown before a schedule (minutes)",
+          "queue_alert_minutes": "Alert for waiting jobs after (minutes)",
+          "excluded_repos": "Excluded repositories",
+          "runner_labels": "Runner labels",
+          "use_webhook": "Use the workflow_job webhook"
+        },
+        "data_description": {
+          "use_webhook": "Optional accelerator. Polling stays active as a safety net."
+        }
+      },
+      "webhook_info": {
+        "title": "GitHub webhook",
+        "description": "Create a webhook at GitHub (organisation or repository settings) for the event \"Workflow jobs\", content type application/json.\n\nPayload URL: `{webhook_url}`\n\nSecret: `{webhook_secret}`"
+      }
+    }
+  },
+  "device": {
+    "server": {
+      "name": "Runner server ({owner})"
+    },
+    "schedule": {
+      "name": "Schedule {name}"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "State",
+        "state": {
+          "off": "Off",
+          "starting": "Starting",
+          "ready": "Ready",
+          "active": "Active",
+          "shutting_down": "Shutting down",
+          "wake_failed": "Wake failed",
+          "unknown": "Unknown"
+        }
+      },
+      "queued_jobs": {
+        "name": "Queued jobs"
+      },
+      "running_jobs": {
+        "name": "Running jobs"
+      },
+      "shutdown_at": {
+        "name": "Shutdown at"
+      },
+      "power": {
+        "name": "Power"
+      },
+      "last_wake_reason": {
+        "name": "Last wake reason",
+        "state": {
+          "queued_job": "Queued job",
+          "schedule": "Schedule",
+          "manual": "Manual",
+          "forced_wake": "Forced wake"
+        }
+      },
+      "starts_today": {
+        "name": "Starts today"
+      },
+      "rate_limit_remaining": {
+        "name": "API rate limit remaining"
+      },
+      "next_fire": {
+        "name": "Next dispatch"
+      },
+      "last_dispatch": {
+        "name": "Last dispatch"
+      },
+      "last_run": {
+        "name": "Last run"
+      }
+    },
+    "binary_sensor": {
+      "server_on": {
+        "name": "Server on"
+      },
+      "github_reachable": {
+        "name": "GitHub reachable"
+      },
+      "problem": {
+        "name": "Problem"
+      }
+    },
+    "switch": {
+      "automatic": {
+        "name": "Automatic"
+      },
+      "auto_shutdown": {
+        "name": "Automatic shutdown"
+      },
+      "dry_run": {
+        "name": "Dry run"
+      },
+      "enabled": {
+        "name": "Enabled"
+      }
+    },
+    "number": {
+      "idle_hours": {
+        "name": "Idle time"
+      },
+      "short_idle_minutes": {
+        "name": "Short idle time"
+      }
+    },
+    "button": {
+      "wake": {
+        "name": "Wake"
+      },
+      "safe_shutdown": {
+        "name": "Safe shutdown"
+      },
+      "keep_awake": {
+        "name": "Keep awake for 2 hours"
+      },
+      "force_off": {
+        "name": "Force off"
+      },
+      "dispatch_now": {
+        "name": "Dispatch now"
+      }
+    }
+  },
+  "services": {
+    "wake": {
+      "name": "Wake server",
+      "description": "Powers the server on regardless of the automatic setting.",
+      "fields": {
+        "config_entry": {
+          "name": "Configuration entry",
+          "description": "Only needed if several servers are configured."
+        }
+      }
+    },
+    "shutdown": {
+      "name": "Shut down server",
+      "description": "Shuts the server down through the guard script, which refuses while a job runs.",
+      "fields": {
+        "force": {
+          "name": "Force",
+          "description": "Power the server off through the BMC without asking the guard. Running jobs are lost."
+        },
+        "config_entry": {
+          "name": "Configuration entry",
+          "description": "Only needed if several servers are configured."
+        }
+      }
+    },
+    "keep_awake": {
+      "name": "Keep server awake",
+      "description": "Prevents automatic shutdowns for a while.",
+      "fields": {
+        "duration": {
+          "name": "Duration",
+          "description": "How long the server is kept on."
+        },
+        "config_entry": {
+          "name": "Configuration entry",
+          "description": "Only needed if several servers are configured."
+        }
+      }
+    },
+    "dispatch": {
+      "name": "Dispatch workflow",
+      "description": "Dispatches a workflow, either of a schedule or of any repository.",
+      "fields": {
+        "schedule": {
+          "name": "Schedule",
+          "description": "A schedule entity or the id of a schedule."
+        },
+        "repository": {
+          "name": "Repository",
+          "description": "Owner/name, if no schedule is given."
+        },
+        "workflow": {
+          "name": "Workflow",
+          "description": "File name or id, if no schedule is given."
+        },
+        "ref": {
+          "name": "Branch or tag",
+          "description": "Overrides the reference of the schedule."
+        },
+        "inputs": {
+          "name": "Inputs",
+          "description": "Overrides the inputs of the schedule."
+        },
+        "config_entry": {
+          "name": "Configuration entry",
+          "description": "Only needed if several servers are configured."
+        }
+      }
+    }
+  },
+  "issues": {
+    "token_invalid": {
+      "title": "GitHub token rejected",
+      "description": "Dispatching {repository} for the schedule {schedule} failed because GitHub rejected the token. Renew the token in the integration or in the schedule settings."
+    }
+  },
+  "exceptions": {
+    "entry_not_found": {
+      "message": "No loaded Homerunner entry matches."
+    },
+    "no_entry": {
+      "message": "Homerunner is not set up."
+    },
+    "multiple_entries": {
+      "message": "Several Homerunner entries exist; select one with config_entry."
+    },
+    "unknown_schedule": {
+      "message": "Unknown schedule {schedule}."
+    },
+    "invalid_inputs": {
+      "message": "The inputs must be a JSON object."
+    },
+    "dispatch_target_missing": {
+      "message": "Give either a schedule or both repository and workflow."
+    },
+    "force_off_failed": {
+      "message": "Switching the server off failed: {error}"
+    }
+  },
+  "selector": {
+    "weekdays": {
+      "options": {
+        "0": "Monday",
+        "1": "Tuesday",
+        "2": "Wednesday",
+        "3": "Thursday",
+        "4": "Friday",
+        "5": "Saturday",
+        "6": "Sunday"
+      }
+    }
+  }
+}

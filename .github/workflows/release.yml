@@ -32,6 +32,6 @@ jobs:
         run: |
           cd custom_components/homerunner
           zip -r ../../homerunner.zip . -x "__pycache__/*" "*/__pycache__/*"
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: homerunner.zip
